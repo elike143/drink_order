@@ -218,3 +218,55 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+# ===== 環境變數與密碼 =====
+
+# 忽略名為 .env 的檔案，這裡面放真實密碼，絕對不能上傳
+.env
+
+# 忽略所有以 .env. 開頭的檔案，例如 .env.local、.env.production
+.env.*
+
+# 驚嘆號代表「例外」：.env.example 是公開的範本，要上傳，不要被上面那條擋掉
+!.env.example
+
+# ===== 虛擬環境與測試暫存 =====
+
+# 忽略 venv 資料夾，裡面是 pip 安裝的套件，體積大且每台電腦都能重建
+venv/
+
+# 忽略 .venv 資料夾，另一種常見的虛擬環境命名
+.venv/
+
+# 忽略 pytest 產生的暫存資料夾
+.pytest_cache/
+
+# 忽略測試覆蓋率計算產生的資料檔
+.coverage
+
+# 忽略測試覆蓋率產生的網頁報告資料夾
+htmlcov/
+
+# ===== 編輯器與作業系統檔案 =====
+
+# 忽略 VS Code 的個人設定資料夾
+.vscode/
+
+# 忽略 JetBrains 系列編輯器的個人設定資料夾
+.idea/
+
+# 忽略 macOS 自動產生的資料夾資訊檔
+.DS_Store
+
+# 忽略 Windows 自動產生的縮圖快取檔
+Thumbs.db
+
+# ===== 資料庫備份與本機資料 =====
+
+# 忽略 PostgreSQL 匯出的 dump 備份檔
+*.dump
+
+# 忽略壓縮過的 SQL 備份檔
+*.sql.gz
+
+# 忽略本機掛載的資料庫資料夾（資料庫的實際檔案不該進版本控制）
+pgdata/
