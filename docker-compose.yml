@@ -1,0 +1,22 @@
+services:                                  # 宣告這個專案要跑哪些服務（容器）
+  db:                                      # 服務名稱叫 db
+    image: postgres:16                     # 使用官方 PostgreSQL 16 映像檔，第一次啟動會自動下載
+    container_name: drink_order-db-1
+    environment:
+  POSTGRES_USER: ${POSTGRES_USER}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+  POSTGRES_DB: ${POSTGRES_DB}
+
+    env_file: .env                         # 從 .env 讀取 POSTGRES_USER、POSTGRES_PASSWORD、POSTGRES_DB
+    ports:                                 # 設定連接埠對應，讓你電腦上的程式能連到容器
+      - "127.0.0.1:5432:5432"              # 只開放本機連線；左邊是電腦的埠，右邊是容器的埠
+    volumes:                               # 設定資料保存位置
+      - pgdata:/var/lib/postgresql/data    # 資料庫檔案存進名為 pgdata 的 volume，容器刪掉資料也還在
+    healthcheck:                           # 健康檢查，判斷資料庫是否已準備好接受連線
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]   # 用 pg_isready 檢查；$$ 避免被 compose 提前替換
+      interval: 10s                        # 每 10 秒檢查一次
+      timeout: 5s                          # 單次檢查最多等 5 秒
+      retries: 5                           # 連續失敗 5 次才判定不健康
+
+volumes:                                   # 宣告上面用到的 volume
+  pgdata:                                  # 建立名為 pgdata 的具名 volume，由 Docker 管理
