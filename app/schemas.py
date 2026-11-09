@@ -1,5 +1,5 @@
 from typing import Literal                                # 匯入 Literal，用來限制「只能是這幾個值」
-from pydantic import BaseModel, Field, ConfigDict         # 匯入 Pydantic 的 BaseModel（資料格式的父類別）、 Field（設定檢查條件）、 ConfigDict（設定模型行為）
+from pydantic import BaseModel, Field, ConfigDict         # 匯入 Pydantic 的 BaseModel（資料格式的父類別）  、 Field（設定檢查條件）、 ConfigDict（設定模型行為）
 
 
 class CupCreate(BaseModel):                                  # 同學新增一杯時送來的資料格式
