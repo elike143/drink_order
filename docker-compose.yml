@@ -1,0 +1,15 @@
+services:                                      # 第 1 層：這個專案要啟動的服務有哪些
+  db:                                          # 第 2 層：一個叫 db 的服務，也就是資料庫
+    image: postgres:16                         # 第 3 層：使用 PostgreSQL 16 版的映像檔（安裝包）
+    env_file: .env                             # 從 .env 讀取帳號、密碼、資料庫名稱
+    ports:                                     # 連接埠設定：外面怎麼連進這個容器
+      - "127.0.0.1:5432:5432"                  # 第 4 層：本機的 5432 對應到容器裡的 5432，而且只允許這台電腦連
+    volumes:                                   # 資料存放設定：容器刪掉後資料要不要保留
+      - pgdata:/var/lib/postgresql/data        # 把資料庫的檔案存進名為 pgdata 的儲存空間
+    healthcheck:                               # 健康檢查：確認資料庫真的準備好可以連線了
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]   # 每次檢查時執行的指令
+      interval: 5s                             # 每 5 秒檢查一次
+      retries: 5                               # 連續失敗 5 次才判定為不健康
+
+volumes:                                       # 回到第 1 層：宣告上面用到的儲存空間
+  pgdata:                                      # 名為 pgdata 的儲存空間，由 Docker 管理
