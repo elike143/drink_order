@@ -14,9 +14,9 @@ class OrderOut(OrderCreate):                       # 繼承 OrderCreate 的所�
 class CupCreate(BaseModel):                                  # 同學新增一杯時送來的資料格式
     who_order: str = Field(min_length=1, max_length=10)      # 誰點的：必填，至少 1 個字（不能空白）、最多 10 字      
     drink_name: str = Field(min_length=1, max_length=100)    # 飲料名：至少 1 個字（不能空白）、最多 100 字
-    ice: Literal["正常", "半冰", "微冰", "完全去冰"]           # 冰塊：只能是這四個值之一，送其他值會被拒絕
-    sugar: Literal["無糖", "微糖", "半糖", "七分糖", "全糖"]   # 糖分：只能是這五個值之一，送其他值會被拒絕
-    size: Literal["小杯", "中杯", "大杯"]                     # 尺寸：只能是這三個值之一，送其他值會被拒絕
+    ice: Literal["正常", "少冰", "去冰", "熱飲"]           # 冰塊：只能是這四個值之一，送其他值會被拒絕
+    sugar: Literal["正常", "9分", "少糖", "半糖", "微糖", "無糖"]   # 糖分：只能是這五個值之一，送其他值會被拒絕
+    size: Literal["M", "L"]                     # 尺寸：只能是這兩個值之一，送其他值會被拒絕
     add: str | None = Field(default=None, max_length=100)    # 加料：選填，沒送就是 None；有送最多 100 字
     price: int = Field(ge=1, le=200)                         # 價格：整數，必須 >=1 且 <= 200（le = 小於等於）
 
