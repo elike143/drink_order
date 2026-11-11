@@ -5,9 +5,11 @@ from app.database import get_db ,engine       #匯入 get_db 來取得資料庫�
 from app.schemas import CupOut, CupCreate, OrderCreate, OrderOut   #匯入 schemas 來定義資料格式       
 from app.models import Base,Cup,Order   #匯入 models 來定義資料表      
 from fastapi.exceptions import HTTPException #匯入 HTTPException 來回傳錯誤訊息
+from fastapi.staticfiles import StaticFiles
 
 Base.metadata.create_all(bind=engine)                #建立資料庫表格
 app = FastAPI(title = "Drink Order API")             #做一個名字叫Drink Order API的API存進app裡
+app.mount("/static", StaticFiles(directory="app/static", html=True), name="static")   # 網址 /static 開頭的請求，都去 app/static 資料夾找檔案
 
 @app.get("/orders", response_model=list[OrderOut])    # 公告:有人要看所有訂單，找下面的店員
 def list_orders(db: Session = Depends(get_db)):       # 店員:拿到資料庫鑰匙 db
