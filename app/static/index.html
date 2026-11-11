@@ -20,6 +20,7 @@
       --radius: 10px;                                               /* 一般元件的圓角 */
     }                                                               /* 顏色變數結束 */
     * { box-sizing: border-box; }                                   /* 寬度包含內距和框線，排版比較好算 */
+    [hidden] { display: none !important; }                          /* 有 hidden 的元素一定隱藏，不會被下面的 display 設定蓋掉 */
     body {                                                          /* 整頁的設定 */
       margin: 0;                                                    /* 去掉瀏覽器預設的外距 */
       background: var(--paper);                                     /* 背景色 */
@@ -157,6 +158,39 @@
       @keyframes rise { from { transform: translateY(8px); opacity: 0; } }  /* 從下面 8px、透明開始 */
     }                                                               /* 動畫設定結束 */
     @media (max-width: 380px) { .two-col { grid-template-columns: 1fr; } }  /* 很窄的手機上，並排欄位改成上下排 */
+    .page.wide { max-width: 1040px; }                               /* 訂單頁有菜單時，整頁放寬 */
+    .order-grid { display: grid; gap: 24px; }                       /* 訂單頁的兩欄，手機上是上下排 */
+    .order-main { min-width: 0; }                                   /* 左欄可以縮小，避免被長文字撐開 */
+    @media (min-width: 860px) {                                     /* 螢幕夠寬時 */
+      .order-grid { grid-template-columns: minmax(0, 1fr) 360px; align-items: start; }  /* 左邊點單撐開，右邊菜單固定 360px */
+      .menu-board { position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow-y: auto; margin-top: 24px; }  /* 菜單捲動時黏在畫面上，太長就在裡面捲 */
+    }                                                               /* 寬螢幕設定結束 */
+    .menu-board { background: var(--ink); color: #EEF2EC; border-radius: var(--radius); padding: 16px 18px; }  /* 菜單看板：深綠底淺字，像店裡牆上的菜單 */
+    .menu-board summary { cursor: pointer; font-size: 18px; font-weight: 700; }  /* 菜單標題，點了可以收合 */
+    .menu-hint { margin: 6px 0 4px; font-size: 13px; color: #B8C6BD; }  /* 菜單用法說明的小字 */
+    .no-hot { color: #E7B860; }                                     /* ◆ 記號用淡琥珀色 */
+    .menu-cat { display: grid; grid-template-columns: 1fr 3em 3em; align-items: baseline; margin: 18px 0 4px; padding-bottom: 4px; border-bottom: 1px solid rgba(238, 242, 236, 0.25); }  /* 分類標題列：分類名、M、L 三欄 */
+    .menu-cat h4 { margin: 0; font-size: 16px; }                    /* 分類名稱 */
+    .menu-cat span { text-align: right; font-size: 13px; color: #B8C6BD; }  /* M、L 欄位標題 */
+    .menu-list { list-style: none; margin: 0; padding: 0; }         /* 一個分類裡的品項 */
+    .menu-row {                                                     /* 每一個品項：品名、M 價、L 價 */
+      display: grid;                                                /* 用格線對齊價格 */
+      grid-template-columns: 1fr 3em 3em;                           /* 和分類標題列一樣的三欄 */
+      width: 100%;                                                  /* 撐滿整行 */
+      padding: 5px 0;                                               /* 上下留白 */
+      font: inherit;                                                /* 字型和整頁一樣 */
+      font-size: 15px;                                              /* 字級 */
+      color: inherit;                                               /* 文字顏色跟著看板 */
+      background: none;                                             /* 按鈕不要預設的底色 */
+      border: 0;                                                    /* 按鈕不要預設的框線 */
+      text-align: left;                                             /* 品名靠左 */
+    }                                                               /* 品項結束 */
+    button.menu-row { cursor: pointer; border-radius: 4px; }        /* 可以點的品項，滑鼠變手指 */
+    button.menu-row:hover { background: rgba(238, 242, 236, 0.1); } /* 滑鼠移上去時微微亮起 */
+    .menu-row .num { text-align: right; }                           /* 價格靠右對齊 */
+    .menu-note { display: block; font-size: 12px; color: #B8C6BD; }  /* 品名下方的說明小字 */
+    .chip input:disabled + span { opacity: 0.4; cursor: not-allowed; text-decoration: line-through; }  /* 不能選的選項：變淡、加刪除線 */
+    input[readonly] { background: var(--paper); color: var(--ink); cursor: default; }  /* 鎖住的價格欄：底色和背景一樣，看得出不能改 */
   </style>                                                          <!-- CSS 結束 -->
 </head>                                                             <!-- 設定區結束 -->
 <body>                                                              <!-- 畫面內容開始 -->
@@ -196,28 +230,38 @@
       </div>                                                        <!-- 總金額區結束 -->
       <button class="btn" id="copy-link" type="button">複製這張單的連結</button>  <!-- 複製網址，負責人可以貼到班級群組 -->
     </section>                                                      <!-- 訂單資訊結束 -->
-    <form id="form-cup" class="slip">                               <!-- 點單紙：點一杯的表單 -->
-      <h3 class="slip-title">點一杯</h3>                              <!-- 點單紙標題 -->
-      <div class="two-col">                                         <!-- 名字和飲料並排 -->
-        <label class="field"><span>你的名字</span><input type="text" name="who_order" required maxlength="10" placeholder="例如：小明"></label>  <!-- 必填，最多 10 字 -->
-        <label class="field"><span>飲料</span><input type="text" name="drink_name" required maxlength="100" placeholder="例如：珍珠奶茶"></label>  <!-- 必填，最多 100 字 -->
-      </div>                                                        <!-- 並排結束 -->
-      <fieldset><legend>尺寸</legend><div class="chips" data-group="size"></div></fieldset>   <!-- 尺寸選項，JavaScript 會產生 -->
-      <fieldset><legend>甜度</legend><div class="chips" data-group="sugar"></div></fieldset>  <!-- 甜度選項 -->
-      <fieldset><legend>冰塊</legend><div class="chips" data-group="ice"></div></fieldset>    <!-- 冰塊選項 -->
-      <div class="two-col">                                         <!-- 加料和價格並排 -->
-        <label class="field"><span>加料（可不填）</span><input type="text" name="add" maxlength="100" placeholder="例如：珍珠"></label>  <!-- 選填 -->
-        <label class="field"><span>這杯多少錢</span><input type="number" name="price" required min="1" max="200" step="1" inputmode="numeric" placeholder="含加料"></label>  <!-- 必填，1 到 200 的整數 -->
-      </div>                                                        <!-- 並排結束 -->
-      <button class="btn primary" type="submit">送出點單</button>     <!-- 送出 -->
-    </form>                                                         <!-- 點單紙結束 -->
-    <p class="closed-note" hidden>這張單已經結單，不能再點。明細還是可以看。</p>  <!-- 已結單時取代點單紙 -->
-    <h3>點單明細</h3>                                                 <!-- 明細標題 -->
-    <ul class="people"></ul>                                        <!-- 依人分組的明細 -->
-    <p class="empty people-empty" hidden>還沒有人點。上面填好送出，就是第一杯。</p>  <!-- 沒人點時顯示 -->
-    <div class="actions">                                           <!-- 底部按鈕 -->
-      <button class="btn danger" id="close-order" type="button">結單，不再收</button>  <!-- 結單按鈕 -->
-    </div>                                                          <!-- 底部按鈕結束 -->
+    <div class="order-grid">                                        <!-- 寬螢幕時分成左右兩欄：左邊點單、右邊菜單 -->
+      <div class="order-main">                                      <!-- 左欄：點單紙、明細、結單 -->
+      <form id="form-cup" class="slip">                               <!-- 點單紙：點一杯的表單 -->
+        <h3 class="slip-title">點一杯</h3>                              <!-- 點單紙標題 -->
+        <div class="two-col">                                         <!-- 名字和飲料並排 -->
+          <label class="field"><span>你的名字</span><input type="text" name="who_order" required maxlength="10" placeholder="例如：小明"></label>  <!-- 必填，最多 10 字 -->
+          <label class="field"><span>飲料</span><input type="text" name="drink_name" required maxlength="100" placeholder="例如：珍珠奶茶"></label>  <!-- 必填，最多 100 字 -->
+        </div>                                                        <!-- 並排結束 -->
+        <fieldset><legend>尺寸</legend><div class="chips" data-group="size"></div></fieldset>   <!-- 尺寸選項，JavaScript 會產生 -->
+        <fieldset><legend>甜度</legend><div class="chips" data-group="sugar"></div></fieldset>  <!-- 甜度選項 -->
+        <fieldset><legend>冰塊</legend><div class="chips" data-group="ice"></div></fieldset>    <!-- 冰塊選項 -->
+        <fieldset class="paid-toppings" hidden><legend>要加錢的加料</legend><div class="chips topping-chips"></div></fieldset>  <!-- 要加錢的加料，有資料時才顯示 -->
+        <div class="two-col">                                         <!-- 加料和價格並排 -->
+          <label class="field"><span class="add-label">加料（可不填）</span><input type="text" name="add" maxlength="100" placeholder="例如：珍珠"></label>  <!-- 選填 -->
+          <label class="field"><span>這杯多少錢</span><input type="number" name="price" required min="1" max="200" step="1" inputmode="numeric" placeholder="這杯的價格"></label>  <!-- 必填，1 到 200 的整數；有菜單時自動帶入並鎖住 -->
+        </div>                                                        <!-- 並排結束 -->
+        <button class="btn primary" type="submit">送出點單</button>     <!-- 送出 -->
+      </form>                                                         <!-- 點單紙結束 -->
+      <p class="closed-note" hidden>這張單已經結單，不能再點。明細還是可以看。</p>  <!-- 已結單時取代點單紙 -->
+      <h3>點單明細</h3>                                                 <!-- 明細標題 -->
+      <ul class="people"></ul>                                        <!-- 依人分組的明細 -->
+      <p class="empty people-empty" hidden>還沒有人點。上面填好送出，就是第一杯。</p>  <!-- 沒人點時顯示 -->
+      <div class="actions">                                           <!-- 底部按鈕 -->
+        <button class="btn danger" id="close-order" type="button">結單，不再收</button>  <!-- 結單按鈕 -->
+      </div>                                                          <!-- 底部按鈕結束 -->
+      </div>                                                        <!-- 左欄結束 -->
+      <details class="menu-board" hidden>                           <!-- 右欄：菜單看板，可以收合；沒有菜單時保持隱藏 -->
+        <summary>菜單</summary>                                     <!-- 收合時顯示的標題 -->
+        <p class="menu-hint">點品項可以直接帶入點單。<span class="no-hot">◆</span> 不建議熱飲。</p>  <!-- 菜單用法說明 -->
+        <div class="menu-sections"></div>                           <!-- 各分類的品項，JavaScript 會放進來 -->
+      </details>                                                    <!-- 右欄結束 -->
+    </div>                                                          <!-- 兩欄結束 -->
   </template>                                                       <!-- 訂單頁樣板結束 -->
 
   <script>                                                          // 從這裡開始是 JavaScript，負責呼叫 API 和更新畫面
@@ -231,6 +275,7 @@
       sugar: "甜度", ice: "冰塊", add: "加料", price: "價格",            // 後四個欄位
     };                                                              // 對應表結束
     const NAME_KEY = "drink_order_name";                            // 在瀏覽器記住名字時用的鑰匙
+    const DRINK_NOTES = { "麵茶": "古早味炒麵粉，含麩質" };            // 品名裡有這些字的飲料，在菜單上加一句說明
     const app = document.getElementById("app");                     // 主要內容的位置
     const toast = document.getElementById("toast");                 // 提示訊息的位置
     let toastTimer = null;                                          // 用來控制提示訊息幾秒後消失
@@ -294,6 +339,7 @@
 
     async function renderHome() {                                   // 顯示首頁
       app.replaceChildren(fromTemplate("tpl-home"));                // 換成首頁的內容
+      document.querySelector(".page").classList.remove("wide");     // 首頁用一般寬度
       document.title = "訂飲料";                                      // 分頁標題
       const form = document.getElementById("form-order");           // 開單表單
       try {                                                         // 嘗試載入店家清單
@@ -406,6 +452,126 @@
       return groups.size;                                           // 回傳有幾個人點
     }                                                               // renderPeople 結束
 
+    function setupMenu(page, form, menu, toppings) {                // 畫出菜單看板；form 有值代表還在收單，要讓飲料可以從菜單選
+      const board = page.querySelector(".menu-board");              // 菜單看板
+      board.hidden = false;                                         // 有菜單才顯示
+      board.open = window.matchMedia("(min-width: 860px)").matches; // 寬螢幕預設展開，手機預設收合，避免頁面太長
+      const byName = new Map(menu.map((item) => [item.name, item]));  // 用品名快速找到品項
+      const categories = new Map();                                 // 分類名稱對應到這個分類的品項
+      for (const item of menu) {                                    // 每個品項做一次
+        if (!categories.has(item.category)) categories.set(item.category, []);  // 第一次出現的分類先建空清單
+        categories.get(item.category).push(item);                   // 品項放進它的分類
+      }                                                             // 分類結束
+
+      let select = null;                                            // 飲料下拉選單，收單中才會建立
+      if (form) {                                                   // 還在收單
+        const input = form.drink_name;                              // 原本自己輸入飲料的輸入框
+        select = document.createElement("select");                  // 建立下拉選單取代它
+        select.name = "drink_name";                                 // 欄位名稱一樣，送出時不用改
+        select.required = true;                                     // 一定要選
+        select.append(new Option("選擇飲料", ""));                    // 預設的提示選項
+        for (const [category, items] of categories) {               // 每個分類做一次
+          const group = document.createElement("optgroup");         // 下拉選單裡的分組
+          group.label = category;                                   // 分組名稱
+          for (const item of items) group.append(new Option(item.hot_ok ? item.name : `${item.name} ◆`, item.name));  // 每個品項一個選項，不建議熱飲的加上 ◆
+          select.append(group);                                     // 分組放進下拉選單
+        }                                                           // 每個分類結束
+        input.replaceWith(select);                                  // 用下拉選單取代輸入框
+        form.price.readOnly = true;                                 // 價格照菜單決定，鎖住不給改（五十嵐加料不用錢）
+        form.price.placeholder = "選好飲料和尺寸後自動帶入";             // 提示價格會自己出現
+        const update = () => applyMenuItem(form, byName.get(select.value));  // 依目前選的飲料更新價格和熱飲
+        select.addEventListener("change", update);                  // 換飲料時更新
+        form.querySelectorAll("input[name=size]").forEach((r) => r.addEventListener("change", update));  // 換尺寸時也要更新價格
+        if (toppings.length) {                                      // 這家店有要加錢的加料
+          const box = form.querySelector(".topping-chips");         // 放加料選項的位置
+          for (const topping of toppings) {                         // 每一種加料做一次
+            const label = document.createElement("label");          // 外層 label，點文字也能勾
+            label.className = "chip";                               // 和其他選項同樣的外觀
+            const input = document.createElement("input");          // 勾選框
+            input.type = "checkbox";                                // 可以複選，布丁和冰淇淋能同時加
+            input.name = "paid_topping";                            // 欄位名稱
+            input.value = topping.name;                             // 加料名稱
+            input.dataset.price = topping.price;                    // 把加價記在元素上，算價格時用
+            input.addEventListener("change", update);               // 勾或取消時重新算價格
+            const text = document.createElement("span");            // 看得到的文字
+            text.textContent = `${topping.name} +${topping.price}`; // 例如「布丁 +15」
+            label.append(input, text);                              // 勾選框和文字放進 label
+            box.append(label);                                      // 放進加料區
+          }                                                         // 每種加料結束
+          form.querySelector(".paid-toppings").hidden = false;      // 顯示加料區
+          form.querySelector(".add-label").textContent = "其他加料（免費，可不填）";  // 文字框改成填免費的加料
+        }                                                           // 加料處理結束
+      }                                                             // 收單中處理結束
+
+      const sections = board.querySelector(".menu-sections");       // 放分類的位置
+      for (const [category, items] of categories) {                 // 每個分類做一次
+        const head = document.createElement("div");                 // 分類標題列
+        head.className = "menu-cat";                                // 套用樣式
+        const title = document.createElement("h4");                 // 分類名稱
+        title.textContent = category;                               // 放入名稱
+        const m = document.createElement("span");                   // M 欄標題
+        m.textContent = "M";                                        // 放入文字
+        const l = document.createElement("span");                   // L 欄標題
+        l.textContent = "L";                                        // 放入文字
+        head.append(title, m, l);                                   // 三個放進標題列
+        const list = document.createElement("ul");                  // 這個分類的品項清單
+        list.className = "menu-list";                               // 套用樣式
+        for (const item of items) {                                 // 每個品項做一次
+          const li = document.createElement("li");                  // 清單項目
+          const row = document.createElement(select ? "button" : "div");  // 收單中做成按鈕可以點，已結單只是文字
+          row.className = "menu-row";                               // 套用樣式
+          if (select) row.type = "button";                          // 按鈕類型設為一般按鈕，避免送出表單
+          const name = document.createElement("span");              // 品名
+          name.textContent = item.name;                             // 放入品名
+          if (!item.hot_ok) {                                       // 不建議熱飲
+            const mark = document.createElement("span");            // ◆ 記號
+            mark.className = "no-hot";                              // 套用琥珀色
+            mark.textContent = " ◆";                                // 放入記號
+            name.append(mark);                                      // 接在品名後面
+          }                                                         // 記號結束
+          const pm = document.createElement("span");                // M 價
+          pm.className = "num";                                     // 數字等寬靠右
+          pm.textContent = item.price_m;                            // 放入價格
+          const pl = document.createElement("span");                // L 價
+          pl.className = "num";                                     // 數字等寬靠右
+          pl.textContent = item.price_l;                            // 放入價格
+          const noteKey = Object.keys(DRINK_NOTES).find((k) => item.name.includes(k));  // 找找看這杯有沒有需要說明
+          if (noteKey) {                                            // 有說明
+            const note = document.createElement("small");           // 說明文字
+            note.className = "menu-note";                           // 套用小字樣式
+            note.textContent = DRINK_NOTES[noteKey];                // 放入說明
+            name.append(note);                                      // 放在品名下面
+          }                                                         // 說明結束
+          row.append(name, pm, pl);                                 // 三個放進這一列
+          if (select) row.addEventListener("click", () => {         // 點了菜單上的品項
+            select.value = item.name;                               // 下拉選單選到這個品項
+            select.dispatchEvent(new Event("change"));              // 觸發更新價格和熱飲
+            select.focus();                                         // 焦點移到下拉選單，手機上會捲回點單紙
+          });                                                       // 點擊事件結束
+          li.append(row);                                           // 這一列放進項目
+          list.append(li);                                          // 項目放進清單
+        }                                                           // 每個品項結束
+        sections.append(head, list);                                // 標題列和清單放進看板
+      }                                                             // 每個分類結束
+    }                                                               // setupMenu 結束
+
+    function applyMenuItem(form, item) {                            // 依選到的飲料，帶入價格並決定能不能選熱飲
+      const hot = form.querySelector("input[name=ice][value='熱飲']");  // 熱飲那個選項
+      if (hot) {                                                    // 有熱飲選項才處理
+        hot.disabled = Boolean(item && !item.hot_ok);               // 菜單標 ◆ 的飲料不能選熱飲
+        if (hot.disabled) hot.checked = false;                      // 已經勾了熱飲就取消，讓使用者重選冰塊
+      }                                                             // 熱飲處理結束
+      const size = form.querySelector("input[name=size]:checked");  // 目前選的尺寸
+      if (item && size) {                                           // 飲料和尺寸都選了
+        const base = size.value === "M" ? item.price_m : item.price_l;  // 照菜單查出飲料本身的價格
+        const extra = [...form.querySelectorAll("input[name=paid_topping]:checked")]  // 找出所有勾起來的要錢加料
+          .reduce((sum, box) => sum + Number(box.dataset.price), 0);  // 把它們的加價加總
+        form.price.value = base + extra;                            // 價格 = 飲料 + 加料
+      } else {                                                      // 飲料或尺寸還沒選
+        form.price.value = "";                                      // 價格先清空，避免留著上一杯的價格
+      }                                                             // 價格處理結束
+    }                                                               // applyMenuItem 結束
+
     async function renderOrder(orderId) {                           // 顯示某一張訂單
       let order, cups;                                              // 準備放訂單和杯子的變數
       try {                                                         // 嘗試載入
@@ -418,6 +584,16 @@
         location.hash = "#/";                                       // 回首頁
         return;                                                     // 不再往下
       }                                                             // 載入結束
+      let menu = null;                                              // 這家店的菜單，沒有就維持 null
+      try {                                                         // 嘗試載入菜單
+        menu = await api(`/menu?shop=${encodeURIComponent(order.shop_name)}`);  // 呼叫 GET /menu?shop=店名；中文店名要先編碼才能放進網址
+      } catch { }                                                   // 沒有菜單（404）就算了，飲料改回自己輸入
+      let toppings = [];                                            // 這家店要加錢的加料，沒有就是空的
+      if (menu) {                                                   // 有菜單才需要加料價格
+        try {                                                       // 嘗試載入加料
+          toppings = await api(`/toppings?shop=${encodeURIComponent(order.shop_name)}`);  // 呼叫 GET /toppings?shop=店名
+        } catch { }                                                 // 拿不到就當作沒有要錢的加料
+      }                                                             // 加料載入結束
 
       const page = fromTemplate("tpl-order");                       // 複製訂單頁樣板
       page.querySelector(".shop").textContent = order.shop_name;    // 店名
@@ -430,7 +606,7 @@
 
       const form = page.querySelector("#form-cup");                 // 點單表單
       if (order.is_open) {                                          // 還在收單
-        page.querySelectorAll(".chips").forEach((box) => buildChips(box, box.dataset.group));  // 產生三組選項
+        page.querySelectorAll(".chips[data-group]").forEach((box) => buildChips(box, box.dataset.group));  // 產生尺寸、甜度、冰塊三組選項（加料區沒有 data-group，不在這裡產生）
         form.who_order.value = readSavedName();                     // 帶入上次填過的名字
         form.addEventListener("submit", (event) => submitCup(event, orderId, form));  // 按下送出時呼叫 submitCup
         page.querySelector("#close-order").addEventListener("click", () => closeOrder(orderId));  // 按下結單時呼叫 closeOrder
@@ -440,6 +616,8 @@
         page.querySelector(".actions").remove();                    // 拿掉結單按鈕
       }                                                             // 狀態判斷結束
       page.querySelector("#copy-link").addEventListener("click", copyLink);  // 複製連結按鈕
+      if (menu && menu.length) setupMenu(page, order.is_open ? form : null, menu, toppings);  // 有菜單就畫出菜單看板，收單中還要把飲料改成選單
+      document.querySelector(".page").classList.toggle("wide", Boolean(menu && menu.length));  // 有菜單時整頁放寬，放得下右邊的菜單
       app.replaceChildren(page);                                    // 把畫好的訂單頁放到畫面上
       document.title = `${order.shop_name}｜訂飲料`;                   // 分頁標題顯示店名
     }                                                               // renderOrder 結束
@@ -455,7 +633,7 @@
         size: data.get("size"),                                     // 尺寸
         sugar: data.get("sugar"),                                   // 甜度
         ice: data.get("ice"),                                       // 冰塊
-        add: data.get("add").trim() || null,                        // 加料，沒填就送 null
+        add: [...data.getAll("paid_topping"), data.get("add").trim()].filter(Boolean).join("、") || null,  // 勾的加料和自己寫的加料合併成一段，例如「布丁、珍珠」；都沒有就送 null
         price: Number(data.get("price")),                           // 價格轉成數字
       };                                                            // JSON 結束
       try {                                                         // 嘗試送出
