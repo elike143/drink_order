@@ -23,3 +23,4 @@ class CupCreate(BaseModel):                                  # 同學新增一�
 class CupOut(CupCreate):                                     # API 回傳時，每一杯存好的飲料的格式
     id: int                                                  # 編號：整數，必填
     model_config = ConfigDict(from_attributes=True)          # 允許用.去物件取值
+    order_id: int                                              # 這杯屬於哪張訂單
