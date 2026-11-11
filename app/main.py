@@ -44,3 +44,13 @@ def create_cup(order_id: int, data: CupCreate, db: Session = Depends(get_db)):  
     db.commit()                                    # 正式存進資料庫
     db.refresh(cup)                                # 去資料庫拿回最新的樣子，這時才有 id
     return cup                                     # 把存好的這杯回傳給客人
+
+@app.post("/orders/{order_id}/close", response_model=OrderOut)  # 公告：有人要關閉訂單，找下面的店員
+def close_order(order_id: int, db: Session = Depends(get_db)):  # 店員：拿到客人的點單 order_id，和資料庫鑰匙 db
+    order = db.get(Order, order_id)                 # 先去資料庫找這張訂單
+    if not order:                                   # 如果找不到
+        raise HTTPException(status_code=404, detail="找不到這張訂單")  # 回傳 404 給客人
+    order.is_open = False                           # 把這張訂單關閉
+    db.commit()                                     # 正式存進資料庫
+    db.refresh(order)                               # 去資料庫拿回最新的樣子
+    return order                                    # 把存好的這張訂單回傳給客人
