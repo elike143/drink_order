@@ -1,6 +1,15 @@
 from typing import Literal                                # 匯入 Literal，用來限制「只能是這幾個值」
 from pydantic import BaseModel, Field, ConfigDict         # 匯入 Pydantic 的 BaseModel（資料格式的父類別）  、 Field（設定檢查條件）、 ConfigDict（設定模型行為）
+from datetime import datetime                             # 匯入 datetime，用來處理時間
 
+class OrderCreate(BaseModel):                                # 新增訂單時送來的資料格式
+    shop_name: str = Field(min_length=1, max_length=50)      # 店家名：必填，至少 1 個字（不能空白）、最多 50 字
+
+class OrderOut(OrderCreate):                       # 繼承 OrderCreate 的所有欄位
+    id: int                                    # 加上 id
+    created_at: datetime                       # 加上創建時間
+    is_open: bool                              # 加上是否收單
+    model_config = ConfigDict(from_attributes=True)   # 允許從資料庫的物件取值    
 
 class CupCreate(BaseModel):                                  # 同學新增一杯時送來的資料格式
     who_order: str = Field(min_length=1, max_length=10)      # 誰點的：必填，至少 1 個字（不能空白）、最多 10 字      
@@ -14,3 +23,4 @@ class CupCreate(BaseModel):                                  # 同學新增一�
 class CupOut(CupCreate):                                     # API 回傳時，每一杯存好的飲料的格式
     id: int                                                  # 編號：整數，必填
     model_config = ConfigDict(from_attributes=True)          # 允許用.去物件取值
+    order_id: int                                              # 這杯屬於哪張訂單
