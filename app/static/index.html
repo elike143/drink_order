@@ -36,7 +36,7 @@
     h3 { font-size: 17px; margin: 28px 0 10px; }                    /* 小標題 */
     .field { display: block; }                                      /* 每個輸入欄位獨佔一行 */
     .field > span { display: block; font-size: 14px; font-weight: 500; margin-bottom: 4px; }  /* 欄位名稱：小字、稍粗 */
-    input[type="text"], input[type="number"] {                      /* 文字和數字輸入框 */
+    input[type="text"], input[type="number"], select {              /* 文字、數字輸入框和下拉選單，長得一樣 */
       width: 100%;                                                  /* 撐滿整行 */
       font: inherit;                                                /* 用和整頁一樣的字型 */
       padding: 10px 12px;                                           /* 內距，手指好點 */
@@ -174,13 +174,15 @@
     <form id="form-order" class="row-form">                         <!-- 開單表單 -->
       <label class="field">                                         <!-- 店家欄位 -->
         <span>店家</span>                                            <!-- 欄位名稱 -->
-        <input type="text" name="shop_name" required maxlength="50" placeholder="例如：五十嵐 淡水店">  <!-- 必填，最多 50 字，對應後端的限制 -->
+        <select name="shop_name" required>                           <!-- 店家下拉選單，必選 -->
+          <option value="">選擇店家</option>                          <!-- 預設的提示選項，值是空的，沒選就送不出去 -->
+        </select>                                                   <!-- 其他店家由 JavaScript 從 GET /shops 拿到後放進來 -->
       </label>                                                      <!-- 店家欄位結束 -->
       <button class="btn primary" type="submit">開單</button>        <!-- 送出開單 -->
     </form>                                                         <!-- 開單表單結束 -->
     <h2>所有訂單</h2>                                                 <!-- 訂單列表標題 -->
     <ul id="order-list" class="order-list"></ul>                    <!-- 訂單清單，JavaScript 會把訂單放進來 -->
-    <p id="order-empty" class="empty" hidden>還沒有訂單。在上面輸入店家，開第一張單。</p>  <!-- 沒有訂單時顯示 -->
+    <p id="order-empty" class="empty" hidden>還沒有訂單。在上面選擇店家，開第一張單。</p>  <!-- 沒有訂單時顯示 -->
   </template>                                                       <!-- 首頁樣板結束 -->
 
   <template id="tpl-order">                                         <!-- 訂單頁的樣板 -->
@@ -294,6 +296,18 @@
       app.replaceChildren(fromTemplate("tpl-home"));                // 換成首頁的內容
       document.title = "訂飲料";                                      // 分頁標題
       const form = document.getElementById("form-order");           // 開單表單
+      try {                                                         // 嘗試載入店家清單
+        const shops = await api("/shops");                          // 呼叫 GET /shops，拿到有菜單的店家
+        for (const shop of shops) {                                 // 每一家店做一次
+          const option = document.createElement("option");          // 建立一個選項
+          option.value = shop;                                      // 送出時的值就是店名
+          option.textContent = shop;                                // 畫面上顯示店名
+          form.shop_name.append(option);                            // 放進下拉選單
+        }                                                           // 每家店結束
+        if (shops.length === 1) form.shop_name.value = shops[0];    // 只有一家店時直接幫忙選好
+      } catch (error) {                                             // 載入失敗
+        showToast(error.message, true);                             // 顯示錯誤
+      }                                                             // 載入店家結束
       form.addEventListener("submit", async (event) => {            // 按下開單時
         event.preventDefault();                                     // 不要讓瀏覽器重新整理頁面
         const button = form.querySelector("button");                // 找到開單按鈕
