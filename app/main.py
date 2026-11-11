@@ -25,6 +25,13 @@ def create_order(data: OrderCreate, db: Session = Depends(get_db)):# 店員:拿�
 def list_cups(db: Session = Depends(get_db)):        # 函式：FastAPI 會先準備好資料庫連線 db 再交給它
     return db.scalars(select(Cup)).all()             # 去資料庫拿出所有飲料，回傳出去
 
+@app.get("/orders/{order_id}/cups", response_model=list[CupOut])  # 公告：有人要看某張訂單的所有飲料，找下面的店員
+def list_cups_in_order(order_id: int, db: Session = Depends(get_db)):  # 店員：拿到客人的點單 order_id，和資料庫鑰匙 db
+    order = db.get(Order, order_id)                 # 先去資料庫找這張訂單
+    if not order:                                   # 如果找不到
+        raise HTTPException(status_code=404, detail="找不到這張訂單")  # 回傳 404 給客人
+    return order.cups                               # 回傳這張訂單的所有飲料
+
 @app.post("/orders/{order_id}/cups", response_model=CupOut, status_code=201)   # 公告：有人要新增一杯飲料，找下面的店員；成功回傳 201
 def create_cup(order_id: int, data: CupCreate, db: Session = Depends(get_db)):   # 店員：拿到客人的點單 data，和資料庫鑰匙 db   
     order = db.get(Order, order_id)                 # 先去資料庫找這張訂單
