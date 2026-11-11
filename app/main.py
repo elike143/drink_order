@@ -66,3 +66,9 @@ def list_menu(shop: str, db: Session = Depends(get_db)):          # shop 是查�
     if not items:                                                 # 這家店沒有菜單
         raise HTTPException(status_code=404, detail="找不到這家店的菜單")   # 回傳 404
     return items                                                  # 回傳菜單
+
+@app.get("/shops", response_model=list[str])                      # 公告：有人要看有哪些店家可以選
+def list_shops(db: Session = Depends(get_db)):                    # 只需要資料庫鑰匙
+    return db.scalars(                                            # 執行查詢
+        select(MenuItem.shop).distinct().order_by(MenuItem.shop)  # 從菜單表拿出所有店名，去掉重複，照名字排序
+    ).all()                                                       # 全部放進 list，例如 ["五十嵐"]
