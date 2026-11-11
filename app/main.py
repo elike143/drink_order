@@ -7,6 +7,7 @@ from app.models import Base,Cup,Order,MenuItem   #匯入 models 來定義資料�
 from fastapi.exceptions import HTTPException #匯入 HTTPException 來回傳錯誤訊息
 from fastapi.staticfiles import StaticFiles
 from app.menu_data import seed_menu  #匯入 menu_data 來建立菜單
+from app.menu_data import seed_menu, topping_price, PAID_TOPPINGS   # 多匯入加料價格表和計算函式
 
 Base.metadata.create_all(bind=engine)                #建立資料庫表格
 app = FastAPI(title = "Drink Order API")             #做一個名字叫Drink Order API的API存進app裡
@@ -42,7 +43,13 @@ def create_cup(order_id: int, data: CupCreate, db: Session = Depends(get_db)):  
         raise HTTPException(status_code=404, detail="找不到這張訂單")  # 回傳 404 給客人
     if not order.is_open:                            # 如果這張訂單已經關閉
         raise HTTPException(status_code=400, detail="這張訂單已經關閉，不能再點")  # 回傳 400 給客人
-    cup = Cup(**data.model_dump(), order_id=order_id)                 # 把點單 data 轉成一杯可以存進資料庫的 Cup
+    item = db.scalar(select(MenuItem).where(MenuItem.shop == order.shop_name, MenuItem.name == data.drink_name))   # 在這家店的菜單裡找這杯飲料
+    if item is None:                                                  # 菜單上沒有這杯
+        raise HTTPException(status_code=400, detail="菜單上沒有這杯飲料")   # 拒絕
+    if data.ice == "熱飲" and not item.hot_ok:                        # 菜單標 ◆ 的飲料卻點熱飲
+        raise HTTPException(status_code=400, detail="這杯飲料不建議做熱飲")   # 拒絕
+    price = (item.price_m if data.size == "M" else item.price_l) + topping_price(order.shop_name, data.add)   # 飲料價格加上要錢的加料
+    cup = Cup(**data.model_dump(exclude={"price"}), price=price, order_id=order_id)   # 不用前端送來的價格，換成菜單價格
     db.add(cup)                                    # 放進暫存區
     db.commit()                                    # 正式存進資料庫
     db.refresh(cup)                                # 去資料庫拿回最新的樣子，這時才有 id
@@ -72,3 +79,8 @@ def list_shops(db: Session = Depends(get_db)):                    # 只需要資
     return db.scalars(                                            # 執行查詢
         select(MenuItem.shop).distinct().order_by(MenuItem.shop)  # 從菜單表拿出所有店名，去掉重複，照名字排序
     ).all()                                                       # 全部放進 list，例如 ["五十嵐"]
+
+@app.get("/toppings")                                             # 公告：有人要看某家店哪些加料要加錢
+def list_toppings(shop: str):                                     # shop 是查詢參數：/toppings?shop=五十嵐；這支不用查資料庫
+    prices = PAID_TOPPINGS.get(shop, {})                          # 拿出這家店的加料價格，沒有就是空的
+    return [{"name": name, "price": price} for name, price in prices.items()]   # 轉成 [{"name": "布丁", "price": 15}, ...]
