@@ -26,3 +26,13 @@ class Cup(Base):                                                  # 定義一杯
     size: Mapped[str] = mapped_column(String(100))                # 尺寸：文字，必填
     add: Mapped[str | None] = mapped_column(String(100))          # 加料：文字，選填
     price: Mapped[int]                                            # 單杯價格：整數，必填
+
+class MenuItem(Base):                                             # 菜單品項，一筆是一種飲料
+    __tablename__ = "menu_items"                                  # 資料庫裡的表名
+    id: Mapped[int] = mapped_column(primary_key=True)             # 編號：主鍵
+    shop: Mapped[str] = mapped_column(String(50), index=True)     # 哪一家店；加索引，用店名查比較快
+    category: Mapped[str] = mapped_column(String(20))             # 菜單分類，例如「找好茶」
+    name: Mapped[str] = mapped_column(String(50))                 # 品名
+    price_m: Mapped[int]                                          # M 杯價格
+    price_l: Mapped[int]                                          # L 杯價格
+    hot_ok: Mapped[bool] = mapped_column(default=True)            # 可不可以做熱飲；菜單標 ◆ 的是 False

@@ -1,15 +1,20 @@
 from fastapi import FastAPI,Depends    #匯入 FastAPI 來建立 API，匯入 Depends 來取得資料庫連線
 from sqlalchemy import select          #匯入 select 來查詢資料庫
 from sqlalchemy.orm import Session     #匯入 Session 來取得資料庫連線
-from app.database import get_db ,engine       #匯入 get_db 來取得資料庫連線，匯入 engine 來建立資料庫表格
-from app.schemas import CupOut, CupCreate, OrderCreate, OrderOut   #匯入 schemas 來定義資料格式       
-from app.models import Base,Cup,Order   #匯入 models 來定義資料表      
+from app.database import get_db ,engine , SessionLocal       #匯入 get_db 來取得資料庫連線，匯入 engine 來建立資料庫表格
+from app.schemas import CupOut, CupCreate, OrderCreate, OrderOut, MenuItemOut   #匯入 schemas 來定義資料格式       
+from app.models import Base,Cup,Order,MenuItem   #匯入 models 來定義資料表      
 from fastapi.exceptions import HTTPException #匯入 HTTPException 來回傳錯誤訊息
 from fastapi.staticfiles import StaticFiles
+from app.menu_data import seed_menu  #匯入 menu_data 來建立菜單
 
 Base.metadata.create_all(bind=engine)                #建立資料庫表格
 app = FastAPI(title = "Drink Order API")             #做一個名字叫Drink Order API的API存進app裡
 app.mount("/static", StaticFiles(directory="app/static", html=True), name="static")   # 網址 /static 開頭的請求，都去 app/static 資料夾找檔案
+
+# 建立菜單
+with SessionLocal() as db:
+    seed_menu(db)
 
 @app.get("/orders", response_model=list[OrderOut])    # 公告:有人要看所有訂單，找下面的店員
 def list_orders(db: Session = Depends(get_db)):       # 店員:拿到資料庫鑰匙 db
@@ -52,3 +57,12 @@ def close_order(order_id: int, db: Session = Depends(get_db)):  # 店員：拿�
     db.commit()                                     # 正式存進資料庫
     db.refresh(order)                               # 去資料庫拿回最新的樣子
     return order                                    # 把存好的這張訂單回傳給客人
+
+@app.get("/menu", response_model=list[MenuItemOut])               # 公告：有人要看某家店的菜單
+def list_menu(shop: str, db: Session = Depends(get_db)):          # shop 是查詢參數：/menu?shop=五十嵐
+    items = db.scalars(                                           # 執行查詢
+        select(MenuItem).where(MenuItem.shop == shop).order_by(MenuItem.id)   # 只要這家店的品項，照菜單順序
+    ).all()                                                       # 全部放進 list
+    if not items:                                                 # 這家店沒有菜單
+        raise HTTPException(status_code=404, detail="找不到這家店的菜單")   # 回傳 404
+    return items                                                  # 回傳菜單

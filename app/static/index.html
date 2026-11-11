@@ -1,0 +1,485 @@
+<!DOCTYPE html>                                                     <!-- 告訴瀏覽器這是 HTML5 文件 -->
+<html lang="zh-Hant">                                               <!-- 網頁開始，語言是繁體中文 -->
+<head>                                                              <!-- 設定區開始，不會直接顯示在畫面上 -->
+  <meta charset="UTF-8">                                            <!-- 使用 UTF-8 編碼，中文才不會亂碼 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1">  <!-- 手機上用正確寬度顯示 -->
+  <title>訂飲料</title>                                              <!-- 瀏覽器分頁上的標題 -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">       <!-- 先和 Google Fonts 建立連線，字型載入比較快 -->
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>  <!-- 字型檔實際放的網域，也先連線 -->
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">  <!-- 載入思源黑體；沒網路時會自動改用電腦內建字型 -->
+  <style>                                                           /* 從這裡開始是 CSS，決定畫面長什麼樣 */
+    :root {                                                         /* 在最上層定義顏色變數，整頁共用 */
+      --paper: #F3F5F0;                                             /* 背景：淡淡的茶色白 */
+      --slip: #FFFFFF;                                              /* 點單紙的白色 */
+      --ink: #1E3B2F;                                               /* 主要文字和按鈕：深茶綠，像印在點單上的油墨 */
+      --ink-soft: #4F6358;                                          /* 次要文字：淡一點的茶綠 */
+      --line: #D3DBD4;                                              /* 分隔線和框線 */
+      --oolong: #A8670F;                                            /* 強調色：烏龍茶的琥珀色，只用在總金額 */
+      --closed: #7C857F;                                            /* 已結單的灰色 */
+      --danger: #9E3324;                                            /* 結單按鈕的紅色 */
+      --radius: 10px;                                               /* 一般元件的圓角 */
+    }                                                               /* 顏色變數結束 */
+    * { box-sizing: border-box; }                                   /* 寬度包含內距和框線，排版比較好算 */
+    body {                                                          /* 整頁的設定 */
+      margin: 0;                                                    /* 去掉瀏覽器預設的外距 */
+      background: var(--paper);                                     /* 背景色 */
+      color: var(--ink);                                            /* 文字顏色 */
+      font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;  /* 字型：依序找得到哪個用哪個 */
+      font-size: 16px;                                              /* 基本字級，手機上不會太小 */
+      line-height: 1.6;                                             /* 行高，中文讀起來比較舒服 */
+    }                                                               /* 整頁設定結束 */
+    .page { max-width: 560px; margin: 0 auto; padding: 0 16px 64px; }  /* 內容最寬 560px 置中，左右留 16px */
+    .masthead { padding: 28px 0 8px; }                              /* 頁首上下留白 */
+    .brand { color: var(--ink); text-decoration: none; font-size: 28px; font-weight: 700; letter-spacing: 0.04em; }  /* 網站名稱：大字、粗體、不要底線 */
+    .tagline { margin: 2px 0 0; color: var(--ink-soft); font-size: 14px; }  /* 網站名稱下方的小字說明 */
+    h2 { font-size: 20px; margin: 32px 0 12px; }                    /* 區塊標題 */
+    h3 { font-size: 17px; margin: 28px 0 10px; }                    /* 小標題 */
+    .field { display: block; }                                      /* 每個輸入欄位獨佔一行 */
+    .field > span { display: block; font-size: 14px; font-weight: 500; margin-bottom: 4px; }  /* 欄位名稱：小字、稍粗 */
+    input[type="text"], input[type="number"] {                      /* 文字和數字輸入框 */
+      width: 100%;                                                  /* 撐滿整行 */
+      font: inherit;                                                /* 用和整頁一樣的字型 */
+      padding: 10px 12px;                                           /* 內距，手指好點 */
+      border: 1px solid var(--line);                                /* 淡色框線 */
+      border-radius: 8px;                                           /* 圓角 */
+      background: #fff;                                             /* 白底 */
+      color: var(--ink);                                            /* 文字顏色 */
+    }                                                               /* 輸入框結束 */
+    input:focus-visible, button:focus-visible, a:focus-visible, .chip input:focus-visible + span {  /* 用鍵盤移到元件上時 */
+      outline: 3px solid var(--oolong);                             /* 顯示明顯的琥珀色外框 */
+      outline-offset: 2px;                                          /* 外框和元件間隔 2px */
+    }                                                               /* 鍵盤焦點樣式結束 */
+    .btn {                                                          /* 所有按鈕的共同樣式 */
+      font: inherit;                                                /* 字型和整頁一樣 */
+      font-weight: 500;                                             /* 稍粗 */
+      padding: 10px 18px;                                           /* 內距 */
+      border-radius: 8px;                                           /* 圓角 */
+      border: 1px solid var(--ink);                                 /* 框線 */
+      cursor: pointer;                                              /* 滑鼠移上去變成手指 */
+      background: transparent;                                      /* 預設透明底 */
+      color: var(--ink);                                            /* 預設文字顏色 */
+    }                                                               /* 按鈕共同樣式結束 */
+    .btn.primary { background: var(--ink); color: #fff; }           /* 主要按鈕：深綠底白字 */
+    .btn.danger { border-color: var(--danger); color: var(--danger); }  /* 結單按鈕：紅框紅字，提醒這個動作很重要 */
+    .btn:disabled { opacity: 0.5; cursor: wait; }                   /* 送出中時按鈕變淡，避免重複按 */
+    .row-form { display: flex; gap: 8px; align-items: flex-end; }   /* 開單表單：輸入框和按鈕排在同一行 */
+    .row-form .field { flex: 1; }                                   /* 輸入框佔掉剩下的寬度 */
+    .order-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }  /* 訂單清單：去掉項目符號，上方一條線 */
+    .order-list a {                                                 /* 每一張訂單是一個可以點的連結 */
+      display: grid;                                                /* 用格線排版 */
+      grid-template-columns: 1fr auto;                              /* 左邊店名撐開，右邊狀態靠右 */
+      gap: 2px 12px;                                                /* 列距 2px、欄距 12px */
+      padding: 14px 4px;                                            /* 上下留白，手指好點 */
+      border-bottom: 1px solid var(--line);                         /* 每張訂單之間一條線 */
+      color: var(--ink);                                            /* 文字顏色 */
+      text-decoration: none;                                        /* 不要底線 */
+    }                                                               /* 訂單連結結束 */
+    .order-list .shop-name { grid-column: 1; grid-row: 1; font-weight: 700; font-size: 17px; }   /* 店名：放在左上，粗體 */
+    .order-list .pill { grid-column: 2; }                           /* 狀態標籤固定放在右邊那一欄 */
+    .order-list .meta { grid-column: 1; color: var(--ink-soft); font-size: 14px; }  /* 訂單編號和開單時間：小字 */
+    .pill { grid-row: 1 / span 2; align-self: center; font-size: 13px; font-weight: 500; padding: 2px 10px; border-radius: 999px; border: 1px solid currentColor; }  /* 狀態標籤：圓角膠囊，垂直置中 */
+    .pill.open { color: var(--ink); }                               /* 收單中：深綠 */
+    .pill.closed { color: var(--closed); }                          /* 已結單：灰色 */
+    .is-closed .shop-name { color: var(--closed); }                 /* 已結單的店名也變灰 */
+    .empty { color: var(--ink-soft); padding: 16px 0; }             /* 沒有資料時的提示文字 */
+    .back { display: inline-block; margin-top: 20px; color: var(--ink-soft); font-size: 15px; }  /* 回到訂單列表的連結 */
+    .order-head { margin-top: 12px; }                               /* 訂單頁上方資訊 */
+    .order-head .shop { font-size: 26px; margin: 4px 0 0; }         /* 訂單頁的店名：大字 */
+    .order-head .opened { margin: 0; color: var(--ink-soft); font-size: 14px; }  /* 開單時間 */
+    .tally { display: flex; align-items: baseline; gap: 16px; margin: 16px 0 12px; }  /* 總金額和杯數排一行，底部對齊 */
+    .total { margin: 0; color: var(--oolong); font-weight: 700; }   /* 總金額：琥珀色粗體，負責人收錢時最需要看的數字 */
+    .total .currency { font-size: 16px; margin-right: 4px; }        /* NT$ 小一點 */
+    .total .amount { font-size: 40px; line-height: 1; font-variant-numeric: tabular-nums; }  /* 金額數字大字，數字等寬 */
+    .count { margin: 0; color: var(--ink-soft); }                   /* 杯數和人數 */
+    .slip {                                                         /* 點單紙：這頁唯一的重點設計，像手搖飲店的紙本點單 */
+      position: relative;                                           /* 讓上方的撕線可以定位 */
+      background: var(--slip);                                      /* 白紙 */
+      border: 1px solid var(--line);                                /* 淡框線 */
+      border-radius: var(--radius);                                 /* 圓角 */
+      padding: 28px 18px 20px;                                      /* 內距，上方多留給撕線 */
+      margin-top: 24px;                                             /* 和上方隔開 */
+    }                                                               /* 點單紙結束 */
+    .slip::before {                                                 /* 點單紙最上方的虛線撕線 */
+      content: "";                                                  /* 純裝飾，沒有文字 */
+      position: absolute;                                           /* 疊在點單紙上 */
+      left: 14px; right: 14px; top: 12px;                           /* 左右各縮 14px，距上方 12px */
+      border-top: 2px dashed var(--line);                           /* 虛線 */
+    }                                                               /* 撕線結束 */
+    .slip-title { margin: 0 0 14px; font-size: 18px; }              /* 點單紙的標題 */
+    .slip .field, .slip fieldset { margin-bottom: 16px; }           /* 每個欄位下方留白 */
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }  /* 兩個欄位並排 */
+    fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }    /* 去掉選項群組的預設框線 */
+    legend { font-size: 14px; font-weight: 500; padding: 0; margin-bottom: 6px; }  /* 選項群組的名稱 */
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; }            /* 選項排一排，放不下就換行 */
+    .chip { position: relative; }                                   /* 每個選項 */
+    .chip input { position: absolute; opacity: 0; width: 1px; height: 1px; }  /* 把原本的圓形選鈕藏起來，但鍵盤還能操作 */
+    .chip span {                                                    /* 看得到的選項外觀：像點單上印好的勾選格 */
+      display: inline-flex;                                         /* 方框和文字排一行 */
+      align-items: center;                                          /* 垂直置中 */
+      gap: 6px;                                                     /* 方框和文字的間距 */
+      padding: 6px 12px 6px 10px;                                   /* 內距 */
+      border: 1px solid var(--line);                                /* 淡框線 */
+      border-radius: 6px;                                           /* 小圓角 */
+      cursor: pointer;                                              /* 滑鼠變手指 */
+      font-size: 15px;                                              /* 字級 */
+      user-select: none;                                            /* 點的時候不要選到文字 */
+    }                                                               /* 選項外觀結束 */
+    .chip span::before {                                            /* 選項前面的小方格 */
+      content: "";                                                  /* 純裝飾 */
+      width: 12px; height: 12px;                                    /* 方格大小 */
+      border: 1.5px solid var(--ink-soft);                          /* 方格框線 */
+      border-radius: 2px;                                           /* 方格微微圓角 */
+    }                                                               /* 小方格結束 */
+    .chip input:checked + span { border-color: var(--ink); font-weight: 500; }  /* 選中時框線變深、字變粗 */
+    .chip input:checked + span::before { background: var(--ink); border-color: var(--ink); }  /* 選中時方格塗滿，像用筆勾起來 */
+    .slip .btn.primary { width: 100%; padding: 12px; font-size: 17px; margin-top: 4px; }  /* 送出點單按鈕撐滿整行 */
+    .closed-note { margin-top: 24px; padding: 14px 16px; border: 1px dashed var(--closed); border-radius: var(--radius); color: var(--closed); }  /* 已結單的提示框 */
+    .people { list-style: none; margin: 0; padding: 0; }            /* 依人分組的明細清單 */
+    .person { border-top: 1px solid var(--line); padding: 12px 0; } /* 每個人一區，上方一條線 */
+    .person-head { display: flex; justify-content: space-between; font-weight: 700; }  /* 名字在左、小計在右 */
+    .cups { list-style: none; margin: 4px 0 0; padding: 0; }        /* 這個人點的每一杯 */
+    .cups li { display: flex; justify-content: space-between; gap: 12px; color: var(--ink-soft); font-size: 15px; }  /* 飲料內容在左、價格在右 */
+    .num { font-variant-numeric: tabular-nums; white-space: nowrap; }  /* 價格數字等寬、不換行 */
+    .actions { margin-top: 28px; display: flex; gap: 8px; flex-wrap: wrap; }  /* 底部按鈕區 */
+    #toast {                                                        /* 畫面下方的提示訊息 */
+      position: fixed;                                              /* 固定在畫面上，捲動也不會跑掉 */
+      left: 16px; right: 16px; bottom: 16px;                        /* 左右下各留 16px */
+      max-width: 528px; margin: 0 auto;                             /* 不超過內容寬度，置中 */
+      padding: 12px 16px;                                           /* 內距 */
+      border-radius: var(--radius);                                 /* 圓角 */
+      background: var(--ink);                                       /* 深綠底 */
+      color: #fff;                                                  /* 白字 */
+      box-shadow: 0 6px 20px rgba(30, 59, 47, 0.25);                /* 淡淡的陰影，浮在內容上 */
+    }                                                               /* 提示訊息結束 */
+    #toast.error { background: var(--danger); }                     /* 錯誤訊息用紅底 */
+    @media (prefers-reduced-motion: no-preference) {                /* 使用者沒有關閉動畫時才加動畫 */
+      #toast:not([hidden]) { animation: rise 160ms ease-out; }      /* 提示訊息出現時往上滑一點，讓人注意到有回應 */
+      @keyframes rise { from { transform: translateY(8px); opacity: 0; } }  /* 從下面 8px、透明開始 */
+    }                                                               /* 動畫設定結束 */
+    @media (max-width: 380px) { .two-col { grid-template-columns: 1fr; } }  /* 很窄的手機上，並排欄位改成上下排 */
+  </style>                                                          <!-- CSS 結束 -->
+</head>                                                             <!-- 設定區結束 -->
+<body>                                                              <!-- 畫面內容開始 -->
+  <div class="page">                                                <!-- 整頁的外框，控制最大寬度 -->
+    <header class="masthead">                                       <!-- 頁首 -->
+      <a class="brand" href="#/">訂飲料</a>                          <!-- 網站名稱，點了回到首頁 -->
+      <p class="tagline">開一張單，大家各自點，負責人一次收錢。</p>      <!-- 一句話說明這個網站在做什麼 -->
+    </header>                                                       <!-- 頁首結束 -->
+    <main id="app"></main>                                          <!-- 主要內容，JavaScript 會依網址換成首頁或訂單頁 -->
+  </div>                                                            <!-- 整頁外框結束 -->
+  <div id="toast" role="status" aria-live="polite" hidden></div>    <!-- 提示訊息，螢幕閱讀器也會念出來 -->
+
+  <template id="tpl-home">                                          <!-- 首頁的樣板，不會直接顯示 -->
+    <h2>開一張新單</h2>                                               <!-- 開單區標題 -->
+    <form id="form-order" class="row-form">                         <!-- 開單表單 -->
+      <label class="field">                                         <!-- 店家欄位 -->
+        <span>店家</span>                                            <!-- 欄位名稱 -->
+        <input type="text" name="shop_name" required maxlength="50" placeholder="例如：五十嵐 淡水店">  <!-- 必填，最多 50 字，對應後端的限制 -->
+      </label>                                                      <!-- 店家欄位結束 -->
+      <button class="btn primary" type="submit">開單</button>        <!-- 送出開單 -->
+    </form>                                                         <!-- 開單表單結束 -->
+    <h2>所有訂單</h2>                                                 <!-- 訂單列表標題 -->
+    <ul id="order-list" class="order-list"></ul>                    <!-- 訂單清單，JavaScript 會把訂單放進來 -->
+    <p id="order-empty" class="empty" hidden>還沒有訂單。在上面輸入店家，開第一張單。</p>  <!-- 沒有訂單時顯示 -->
+  </template>                                                       <!-- 首頁樣板結束 -->
+
+  <template id="tpl-order">                                         <!-- 訂單頁的樣板 -->
+    <a class="back" href="#/">回到所有訂單</a>                        <!-- 回首頁的連結 -->
+    <section class="order-head">                                    <!-- 訂單資訊 -->
+      <h2 class="shop"></h2>                                        <!-- 店名 -->
+      <p class="opened"></p>                                        <!-- 訂單編號、開單時間、狀態 -->
+      <div class="tally">                                           <!-- 總金額和杯數 -->
+        <p class="total"><span class="currency">NT$</span><span class="amount">0</span></p>  <!-- 總金額 -->
+        <p class="count"></p>                                       <!-- 幾杯、幾個人 -->
+      </div>                                                        <!-- 總金額區結束 -->
+      <button class="btn" id="copy-link" type="button">複製這張單的連結</button>  <!-- 複製網址，負責人可以貼到班級群組 -->
+    </section>                                                      <!-- 訂單資訊結束 -->
+    <form id="form-cup" class="slip">                               <!-- 點單紙：點一杯的表單 -->
+      <h3 class="slip-title">點一杯</h3>                              <!-- 點單紙標題 -->
+      <div class="two-col">                                         <!-- 名字和飲料並排 -->
+        <label class="field"><span>你的名字</span><input type="text" name="who_order" required maxlength="10" placeholder="例如：小明"></label>  <!-- 必填，最多 10 字 -->
+        <label class="field"><span>飲料</span><input type="text" name="drink_name" required maxlength="100" placeholder="例如：珍珠奶茶"></label>  <!-- 必填，最多 100 字 -->
+      </div>                                                        <!-- 並排結束 -->
+      <fieldset><legend>尺寸</legend><div class="chips" data-group="size"></div></fieldset>   <!-- 尺寸選項，JavaScript 會產生 -->
+      <fieldset><legend>甜度</legend><div class="chips" data-group="sugar"></div></fieldset>  <!-- 甜度選項 -->
+      <fieldset><legend>冰塊</legend><div class="chips" data-group="ice"></div></fieldset>    <!-- 冰塊選項 -->
+      <div class="two-col">                                         <!-- 加料和價格並排 -->
+        <label class="field"><span>加料（可不填）</span><input type="text" name="add" maxlength="100" placeholder="例如：珍珠"></label>  <!-- 選填 -->
+        <label class="field"><span>這杯多少錢</span><input type="number" name="price" required min="1" max="200" step="1" inputmode="numeric" placeholder="含加料"></label>  <!-- 必填，1 到 200 的整數 -->
+      </div>                                                        <!-- 並排結束 -->
+      <button class="btn primary" type="submit">送出點單</button>     <!-- 送出 -->
+    </form>                                                         <!-- 點單紙結束 -->
+    <p class="closed-note" hidden>這張單已經結單，不能再點。明細還是可以看。</p>  <!-- 已結單時取代點單紙 -->
+    <h3>點單明細</h3>                                                 <!-- 明細標題 -->
+    <ul class="people"></ul>                                        <!-- 依人分組的明細 -->
+    <p class="empty people-empty" hidden>還沒有人點。上面填好送出，就是第一杯。</p>  <!-- 沒人點時顯示 -->
+    <div class="actions">                                           <!-- 底部按鈕 -->
+      <button class="btn danger" id="close-order" type="button">結單，不再收</button>  <!-- 結單按鈕 -->
+    </div>                                                          <!-- 底部按鈕結束 -->
+  </template>                                                       <!-- 訂單頁樣板結束 -->
+
+  <script>                                                          // 從這裡開始是 JavaScript，負責呼叫 API 和更新畫面
+    const OPTIONS = {                                               // 選項必須和後端 schemas.py 的 Literal 一字不差
+      size: ["M", "L"],                                             // 尺寸，照五十嵐菜單
+      sugar: ["正常", "9分", "少糖", "半糖", "微糖", "無糖"],             // 甜度，照五十嵐菜單
+      ice: ["正常冰", "少冰", "去冰", "熱飲"],                           // 冰塊，照五十嵐菜單
+    };                                                              // 選項結束
+    const FIELD_NAMES = {                                           // 後端欄位名稱對應的中文，用來顯示 422 錯誤
+      shop_name: "店家", who_order: "名字", drink_name: "飲料", size: "尺寸",  // 前四個欄位
+      sugar: "甜度", ice: "冰塊", add: "加料", price: "價格",            // 後四個欄位
+    };                                                              // 對應表結束
+    const NAME_KEY = "drink_order_name";                            // 在瀏覽器記住名字時用的鑰匙
+    const app = document.getElementById("app");                     // 主要內容的位置
+    const toast = document.getElementById("toast");                 // 提示訊息的位置
+    let toastTimer = null;                                          // 用來控制提示訊息幾秒後消失
+
+    function showToast(message, isError = false) {                  // 在畫面下方顯示一段提示
+      toast.textContent = message;                                  // 放入文字（用 textContent，避免被插入惡意 HTML）
+      toast.classList.toggle("error", isError);                     // 錯誤就加上紅底
+      toast.hidden = false;                                         // 顯示出來
+      clearTimeout(toastTimer);                                     // 取消上一次的計時
+      toastTimer = setTimeout(() => { toast.hidden = true; }, isError ? 6000 : 3000);  // 一般 3 秒、錯誤 6 秒後消失
+    }                                                               // showToast 結束
+
+    function readSavedName() {                                      // 讀取上次填過的名字
+      try { return localStorage.getItem(NAME_KEY) || ""; }          // 有就回傳
+      catch { return ""; }                                          // 瀏覽器不允許儲存時就當作沒有
+    }                                                               // readSavedName 結束
+
+    function saveName(name) {                                       // 記住這次填的名字，下次點不用再打
+      try { localStorage.setItem(NAME_KEY, name); } catch { }       // 不允許儲存就算了，不影響點單
+    }                                                               // saveName 結束
+
+    function errorMessage(status, data) {                           // 把後端回傳的錯誤整理成看得懂的一句話
+      const detail = data && data.detail;                           // FastAPI 的錯誤內容都放在 detail
+      if (typeof detail === "string") return detail;                // 你自己寫的 HTTPException，例如「找不到這張訂單」
+      if (Array.isArray(detail)) {                                  // 422 格式錯誤時，detail 是一串錯誤
+        return detail.map((e) => {                                  // 每個錯誤轉成一句
+          const field = e.loc[e.loc.length - 1];                    // loc 的最後一個是欄位名稱
+          return `${FIELD_NAMES[field] || field}：${e.msg}`;          // 例如「價格：Input should be less than or equal to 200」
+        }).join("；");                                               // 用分號串起來
+      }                                                             // 422 處理結束
+      if (status >= 500) return "伺服器出錯了，請看 uvicorn 終端機的錯誤訊息。";  // 5xx 是後端自己的問題
+      return `請求失敗（${status}）`;                                  // 其他情況顯示狀態碼
+    }                                                               // errorMessage 結束
+
+    async function api(path, options = {}) {                        // 呼叫後端 API 的共用函式
+      const response = await fetch(path, {                          // 送出請求，等待回應
+        headers: { "Content-Type": "application/json" },            // 告訴後端我們送的是 JSON
+        ...options,                                                 // 加上呼叫時指定的方法和內容
+      });                                                           // 請求設定結束
+      let data = null;                                              // 先準備一個變數放回傳的資料
+      try { data = await response.json(); } catch { }               // 把回應轉成 JavaScript 資料，失敗就維持 null
+      if (!response.ok) throw new Error(errorMessage(response.status, data));  // 不是 2xx 就丟出錯誤
+      return data;                                                  // 成功就回傳資料
+    }                                                               // api 結束
+
+    function formatTime(iso) {                                      // 把開單時間轉成台灣的顯示方式
+      return new Date(iso).toLocaleString("zh-TW", {                // 用台灣格式
+        month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit",  // 只顯示月日時分
+      });                                                           // 格式結束
+    }                                                               // formatTime 結束
+
+    function fromTemplate(id) {                                     // 從樣板複製一份內容
+      return document.getElementById(id).content.cloneNode(true);   // 複製樣板裡的所有元素
+    }                                                               // fromTemplate 結束
+
+    function route() {                                              // 依網址決定顯示哪一頁
+      const match = location.hash.match(/^#\/orders\/(\d+)$/);      // 網址是 #/orders/數字 就是訂單頁
+      if (match) renderOrder(Number(match[1]));                     // 顯示那張訂單
+      else renderHome();                                            // 其他情況顯示首頁
+    }                                                               // route 結束
+
+    async function renderHome() {                                   // 顯示首頁
+      app.replaceChildren(fromTemplate("tpl-home"));                // 換成首頁的內容
+      document.title = "訂飲料";                                      // 分頁標題
+      const form = document.getElementById("form-order");           // 開單表單
+      form.addEventListener("submit", async (event) => {            // 按下開單時
+        event.preventDefault();                                     // 不要讓瀏覽器重新整理頁面
+        const button = form.querySelector("button");                // 找到開單按鈕
+        button.disabled = true;                                     // 先停用，避免連按開出兩張單
+        try {                                                       // 嘗試開單
+          const order = await api("/orders", {                      // 呼叫 POST /orders
+            method: "POST",                                         // 方法是 POST
+            body: JSON.stringify({ shop_name: form.shop_name.value.trim() }),  // 送出店名，去掉前後空白
+          });                                                       // 呼叫結束
+          showToast(`已開單：${order.shop_name}`);                     // 提示成功
+          location.hash = `#/orders/${order.id}`;                   // 直接進到這張新訂單
+        } catch (error) {                                           // 失敗時
+          showToast(error.message, true);                           // 顯示錯誤
+          button.disabled = false;                                  // 恢復按鈕
+        }                                                           // 開單結束
+      });                                                           // 開單事件結束
+      try {                                                         // 嘗試載入訂單
+        const orders = await api("/orders");                        // 呼叫 GET /orders
+        orders.sort((a, b) => b.id - a.id);                         // 新的排在上面
+        const list = document.getElementById("order-list");         // 訂單清單
+        document.getElementById("order-empty").hidden = orders.length > 0;  // 有訂單就隱藏提示
+        for (const order of orders) {                               // 每張訂單做一次
+          const item = document.createElement("li");                // 建立清單項目
+          if (!order.is_open) item.classList.add("is-closed");      // 已結單加上灰色樣式
+          const link = document.createElement("a");                 // 建立連結
+          link.href = `#/orders/${order.id}`;                       // 點了進到這張訂單
+          const name = document.createElement("span");              // 店名
+          name.className = "shop-name";                             // 套用店名樣式
+          name.textContent = order.shop_name;                       // 放入店名
+          const meta = document.createElement("span");              // 編號和時間
+          meta.className = "meta";                                  // 套用小字樣式
+          meta.textContent = `${order.id} 號單，${formatTime(order.created_at)} 開單`;  // 放入文字
+          const pill = document.createElement("span");              // 狀態標籤
+          pill.className = `pill ${order.is_open ? "open" : "closed"}`;  // 依狀態套用顏色
+          pill.textContent = order.is_open ? "收單中" : "已結單";       // 放入狀態文字
+          link.append(name, pill, meta);                            // 三個部分放進連結
+          item.append(link);                                        // 連結放進項目
+          list.append(item);                                        // 項目放進清單
+        }                                                           // 每張訂單結束
+      } catch (error) {                                             // 載入失敗
+        showToast(error.message, true);                             // 顯示錯誤
+      }                                                             // 載入訂單結束
+    }                                                               // renderHome 結束
+
+    function buildChips(container, group) {                         // 產生一組勾選格選項
+      for (const value of OPTIONS[group]) {                         // 每個選項做一次
+        const label = document.createElement("label");              // 外層 label，點文字也能選
+        label.className = "chip";                                   // 套用選項樣式
+        const input = document.createElement("input");              // 單選鈕
+        input.type = "radio";                                       // 同一組只能選一個
+        input.name = group;                                         // 同一組用同一個名字
+        input.value = value;                                        // 送出時的值
+        input.required = true;                                      // 一定要選
+        const text = document.createElement("span");                // 看得到的文字
+        text.textContent = value;                                   // 放入選項文字
+        label.append(input, text);                                  // 單選鈕和文字放進 label
+        container.append(label);                                    // 放進這組選項
+      }                                                             // 每個選項結束
+    }                                                               // buildChips 結束
+
+    function renderPeople(root, cups) {                             // 依人分組顯示明細
+      const groups = new Map();                                     // 名字對應到這個人點的所有杯
+      for (const cup of cups) {                                     // 每一杯做一次
+        if (!groups.has(cup.who_order)) groups.set(cup.who_order, []);  // 第一次出現的人先建一個空清單
+        groups.get(cup.who_order).push(cup);                        // 把這杯放進這個人的清單
+      }                                                             // 分組結束
+      const list = root.querySelector(".people");                   // 明細清單
+      for (const [name, personCups] of groups) {                    // 每個人做一次
+        const person = document.createElement("li");                // 一個人一區
+        person.className = "person";                                // 套用樣式
+        const head = document.createElement("div");                 // 名字和小計那一行
+        head.className = "person-head";                             // 套用樣式
+        const who = document.createElement("span");                 // 名字
+        who.textContent = name;                                     // 放入名字
+        const subtotal = document.createElement("span");            // 小計
+        subtotal.className = "num";                                 // 數字等寬
+        subtotal.textContent = `${personCups.reduce((sum, c) => sum + c.price, 0)} 元`;  // 這個人要付多少
+        head.append(who, subtotal);                                 // 名字和小計放進同一行
+        const cupList = document.createElement("ul");               // 這個人的每一杯
+        cupList.className = "cups";                                 // 套用樣式
+        for (const cup of personCups) {                             // 每一杯做一次
+          const line = document.createElement("li");                // 一杯一行
+          const desc = document.createElement("span");              // 飲料內容
+          const extra = cup.add ? `，加${cup.add}` : "";               // 有加料才顯示
+          desc.textContent = `${cup.drink_name}　${cup.size}／${cup.sugar}／${cup.ice}${extra}`;  // 例如「珍奶　中杯／半糖／微冰，加珍珠」
+          const price = document.createElement("span");             // 價格
+          price.className = "num";                                  // 數字等寬
+          price.textContent = `${cup.price} 元`;                     // 放入價格
+          line.append(desc, price);                                 // 內容和價格放進同一行
+          cupList.append(line);                                     // 這一行放進清單
+        }                                                           // 每一杯結束
+        person.append(head, cupList);                               // 名字行和每一杯放進這個人的區塊
+        list.append(person);                                        // 這個人放進明細
+      }                                                             // 每個人結束
+      root.querySelector(".people-empty").hidden = cups.length > 0; // 有人點就隱藏提示
+      return groups.size;                                           // 回傳有幾個人點
+    }                                                               // renderPeople 結束
+
+    async function renderOrder(orderId) {                           // 顯示某一張訂單
+      let order, cups;                                              // 準備放訂單和杯子的變數
+      try {                                                         // 嘗試載入
+        const orders = await api("/orders");                        // 後端沒有查單張訂單的 API，所以先拿全部
+        order = orders.find((o) => o.id === orderId);               // 找出這一張
+        if (!order) throw new Error("找不到這張訂單。");                // 找不到就當成錯誤
+        cups = await api(`/orders/${orderId}/cups`);                // 呼叫 GET /orders/{order_id}/cups
+      } catch (error) {                                             // 載入失敗
+        showToast(error.message, true);                             // 顯示錯誤
+        location.hash = "#/";                                       // 回首頁
+        return;                                                     // 不再往下
+      }                                                             // 載入結束
+
+      const page = fromTemplate("tpl-order");                       // 複製訂單頁樣板
+      page.querySelector(".shop").textContent = order.shop_name;    // 店名
+      page.querySelector(".opened").textContent =                   // 編號、時間、狀態
+        `${order.id} 號單，${formatTime(order.created_at)} 開單，${order.is_open ? "收單中" : "已結單"}`;  // 組成一句
+      const total = cups.reduce((sum, cup) => sum + cup.price, 0);  // 加總所有杯的價格
+      page.querySelector(".amount").textContent = total.toLocaleString("zh-TW");  // 顯示總金額，有千分位
+      const peopleCount = renderPeople(page, cups);                 // 畫出明細，順便拿到人數
+      page.querySelector(".count").textContent = `${cups.length} 杯，${peopleCount} 人`;  // 顯示杯數和人數
+
+      const form = page.querySelector("#form-cup");                 // 點單表單
+      if (order.is_open) {                                          // 還在收單
+        page.querySelectorAll(".chips").forEach((box) => buildChips(box, box.dataset.group));  // 產生三組選項
+        form.who_order.value = readSavedName();                     // 帶入上次填過的名字
+        form.addEventListener("submit", (event) => submitCup(event, orderId, form));  // 按下送出時呼叫 submitCup
+        page.querySelector("#close-order").addEventListener("click", () => closeOrder(orderId));  // 按下結單時呼叫 closeOrder
+      } else {                                                      // 已經結單
+        form.remove();                                              // 拿掉點單紙
+        page.querySelector(".closed-note").hidden = false;          // 顯示已結單提示
+        page.querySelector(".actions").remove();                    // 拿掉結單按鈕
+      }                                                             // 狀態判斷結束
+      page.querySelector("#copy-link").addEventListener("click", copyLink);  // 複製連結按鈕
+      app.replaceChildren(page);                                    // 把畫好的訂單頁放到畫面上
+      document.title = `${order.shop_name}｜訂飲料`;                   // 分頁標題顯示店名
+    }                                                               // renderOrder 結束
+
+    async function submitCup(event, orderId, form) {                // 送出一杯
+      event.preventDefault();                                       // 不要重新整理頁面
+      const button = form.querySelector("button[type=submit]");     // 送出按鈕
+      button.disabled = true;                                       // 先停用，避免連按點兩杯
+      const data = new FormData(form);                              // 讀出表單所有欄位
+      const payload = {                                             // 組成要送給後端的 JSON，欄位名稱和 CupCreate 一樣
+        who_order: data.get("who_order").trim(),                    // 名字
+        drink_name: data.get("drink_name").trim(),                  // 飲料
+        size: data.get("size"),                                     // 尺寸
+        sugar: data.get("sugar"),                                   // 甜度
+        ice: data.get("ice"),                                       // 冰塊
+        add: data.get("add").trim() || null,                        // 加料，沒填就送 null
+        price: Number(data.get("price")),                           // 價格轉成數字
+      };                                                            // JSON 結束
+      try {                                                         // 嘗試送出
+        await api(`/orders/${orderId}/cups`, {                      // 呼叫 POST /orders/{order_id}/cups
+          method: "POST",                                           // 方法是 POST
+          body: JSON.stringify(payload),                            // 把資料轉成 JSON 文字
+        });                                                         // 呼叫結束
+        saveName(payload.who_order);                                // 記住名字
+        showToast(`已送出：${payload.drink_name}`);                    // 提示成功
+        await renderOrder(orderId);                                 // 重新載入，明細和總金額會更新
+      } catch (error) {                                             // 失敗時
+        showToast(error.message, true);                             // 顯示錯誤，表單內容保留不清掉
+        button.disabled = false;                                    // 恢復按鈕
+      }                                                             // 送出結束
+    }                                                               // submitCup 結束
+
+    async function closeOrder(orderId) {                            // 結單
+      if (!confirm("結單後就不能再點了。確定要結單嗎？")) return;          // 先確認，按取消就不做
+      try {                                                         // 嘗試結單
+        await api(`/orders/${orderId}/close`, { method: "POST" });  // 呼叫 POST /orders/{order_id}/close
+        showToast("已結單");                                          // 提示成功
+        await renderOrder(orderId);                                 // 重新載入，畫面會變成已結單
+      } catch (error) {                                             // 失敗時
+        showToast(error.message, true);                             // 顯示錯誤
+      }                                                             // 結單結束
+    }                                                               // closeOrder 結束
+
+    async function copyLink() {                                     // 複製目前這張單的網址
+      try {                                                         // 嘗試複製
+        await navigator.clipboard.writeText(location.href);         // 寫入剪貼簿
+        showToast("連結已複製，可以貼到班級群組");                         // 提示成功
+      } catch {                                                     // 瀏覽器不允許時
+        showToast(`請手動複製：${location.href}`);                      // 直接顯示網址
+      }                                                             // 複製結束
+    }                                                               // copyLink 結束
+
+    window.addEventListener("hashchange", route);                   // 網址 # 後面改變時，重新決定顯示哪一頁
+    route();                                                        // 打開網頁時先顯示一次
+  </script>                                                         <!-- JavaScript 結束 -->
+</body>                                                             <!-- 畫面內容結束 -->
+</html>                                                             <!-- 網頁結束 -->
