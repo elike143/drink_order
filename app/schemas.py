@@ -25,7 +25,6 @@ class CupOut(CupCreate):                                     # API 回傳時，�
     id: int                                                  # 編號：整數，必填
     model_config = ConfigDict(from_attributes=True)          # 允許用.去物件取值
     order_id: int                                              # 這杯屬於哪張訂單
-    toppings: str | None = None                             # 將
 
 class MenuItemOut(BaseModel):                                     # API 回傳菜單品項的格式
     id: int                                                       # 編號

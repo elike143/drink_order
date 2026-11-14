@@ -3,6 +3,7 @@ from sqlalchemy import func ,ForeignKey #匯入 func,ForeignKey 來使用 SQL �
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column # 匯入 ORM 的基底類別與定義欄位的工具
 from sqlalchemy.orm import relationship #匯入 relationship 來建立關聯
 from datetime import datetime #匯入datetime來處理時間
+from sqlalchemy.dialects.postgresql import ARRAY   # 匯入 PostgreSQL 的陣列型別，讓一格可以存一個清單
 
 class Base(DeclarativeBase):                                      # 所有資料表的共同父類別
     pass                                                          # 不需要額外內容
@@ -24,8 +25,8 @@ class Cup(Base):                                                  # 定義一杯
     ice: Mapped[str] = mapped_column(String(100))                 # 冰塊：文字，必填
     sugar: Mapped[str] = mapped_column(String(100))               # 糖分：文字，必填
     size: Mapped[str] = mapped_column(String(100))                # 尺寸：文字，必填
-    add: Mapped[str | None] = mapped_column(String(100))          # 加料：文字，選填
-    toppings: Mapped[str | None] = mapped_column(String(100))      # 加料：文字，選填
+    add: Mapped[str | None] = mapped_column(String(100))                           # 備註：文字，選填，例如「茶味重」
+    toppings: Mapped[list[str]] = mapped_column(ARRAY(String(10)), default=list)   # 加料：直接存成清單，沒加料就是空清單
     price: Mapped[int]                                            # 單杯價格：整數，必填
 
 class MenuItem(Base):                                             # 菜單品項，一筆是一種飲料

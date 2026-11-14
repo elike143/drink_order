@@ -6,7 +6,6 @@ from app.schemas import CupOut, CupCreate, OrderCreate, OrderOut, MenuItemOut   
 from app.models import Base,Cup,Order,MenuItem   #匯入 models 來定義資料表      
 from fastapi.exceptions import HTTPException #匯入 HTTPException 來回傳錯誤訊息
 from fastapi.staticfiles import StaticFiles
-from app.menu_data import seed_menu  #匯入 menu_data 來建立菜單
 from app.menu_data import seed_menu, topping_price, PAID_TOPPINGS   # 多匯入加料價格表和計算函式
 
 Base.metadata.create_all(bind=engine)                #建立資料庫表格
@@ -49,7 +48,7 @@ def create_cup(order_id: int, data: CupCreate, db: Session = Depends(get_db)):  
     if data.ice == "熱飲" and not item.hot_ok:                        # 菜單標 ◆ 的飲料卻點熱飲
         raise HTTPException(status_code=400, detail="這杯飲料不建議做熱飲")   # 拒絕
     price = (item.price_m if data.size == "M" else item.price_l) + topping_price(item.category, item.name, data.size, data.toppings)  # 飲料價格加上要錢的加料
-    cup = Cup(**data.model_dump(exclude={"price","toppings"}), price=price, toppings="、".join(data.toppings), order_id=order_id)   # 用model.dump把前端送來的資料轉成字典並拿除價格和加料
+        cup = Cup(**data.model_dump(exclude={"price"}), price=price, order_id=order_id)   # 客人的單整包交給 Cup，只拿掉價格改用後端算的；加料清單直接存
     db.add(cup)                                    # 放進暫存區
     db.commit()                                    # 正式存進資料庫
     db.refresh(cup)                                # 去資料庫拿回最新的樣子，這時才有 id
