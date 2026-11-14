@@ -1,4 +1,4 @@
-from fastapi import FastAPI,Depends    #匯入 FastAPI 來建立 API，匯入 Depends 來取得資料庫連線
+from fastapi import FastAPI,Depends,Query    #匯入 FastAPI 來建立 API，匯入 Depends 來取得資料庫連線，匯入 Query 來取得查詢參數
 from sqlalchemy import select          #匯入 select 來查詢資料庫
 from sqlalchemy.orm import Session     #匯入 Session 來取得資料庫連線
 from app.database import get_db ,engine , SessionLocal       #匯入 get_db 來取得資料庫連線，匯入 engine 來建立資料庫表格
@@ -48,7 +48,7 @@ def create_cup(order_id: int, data: CupCreate, db: Session = Depends(get_db)):  
     if data.ice == "熱飲" and not item.hot_ok:                        # 菜單標 ◆ 的飲料卻點熱飲
         raise HTTPException(status_code=400, detail="這杯飲料不建議做熱飲")   # 拒絕
     price = (item.price_m if data.size == "M" else item.price_l) + topping_price(item.category, item.name, data.size, data.toppings)  # 飲料價格加上要錢的加料
-        cup = Cup(**data.model_dump(exclude={"price"}), price=price, order_id=order_id)   # 客人的單整包交給 Cup，只拿掉價格改用後端算的；加料清單直接存
+    cup = Cup(**data.model_dump(exclude={"price"}), price=price, order_id=order_id)   # 客人的單整包交給 Cup，只拿掉價格改用後端算的；加料清單直接存
     db.add(cup)                                    # 放進暫存區
     db.commit()                                    # 正式存進資料庫
     db.refresh(cup)                                # 去資料庫拿回最新的樣子，這時才有 id
@@ -83,3 +83,17 @@ def list_shops(db: Session = Depends(get_db)):                    # 只需要資
 def list_toppings(shop: str):                                     # shop 是查詢參數：/toppings?shop=五十嵐；這支不用查資料庫
     prices = PAID_TOPPINGS.get(shop, {})                          # 拿出這家店的加料價格，沒有就是空的
     return [{"name": name, "price": price} for name, price in prices.items()]   # 轉成 [{"name": "布丁", "price": 15}, ...]
+
+@app.get("/price")                                                        # 公告：有人要試算一杯飲料多少錢
+def get_price(                                                            # 店員：試算價格
+    shop: str,                                                            # 查詢參數：哪家店，例如 ?shop=五十嵐
+    drink: str,                                                           # 查詢參數：哪杯飲料
+    size: str,                                                            # 查詢參數：M 或 L
+    toppings: list[str] = Query(default=[]),                              # 查詢參數：加料清單，網址裡可以重複出現
+    db: Session = Depends(get_db),                                        # 資料庫鑰匙
+):
+    item = db.scalar(select(MenuItem).where(MenuItem.shop == shop, MenuItem.name == drink))   # 用店名和品名，從菜單表查出這杯飲料
+    if item is None:                                                      # 菜單上沒有這杯
+        raise HTTPException(status_code=404, detail="菜單上沒有這杯飲料")   # 回傳 404
+    price = (item.price_m if size == "M" else item.price_l) + topping_price(item.category, item.name, size, toppings)   # 飲料本身的價格 + 加料的價格
+    return {"price": price}     
