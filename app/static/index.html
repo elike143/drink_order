@@ -241,9 +241,9 @@
         <fieldset><legend>尺寸</legend><div class="chips" data-group="size"></div></fieldset>   <!-- 尺寸選項，JavaScript 會產生 -->
         <fieldset><legend>甜度</legend><div class="chips" data-group="sugar"></div></fieldset>  <!-- 甜度選項 -->
         <fieldset><legend>冰塊</legend><div class="chips" data-group="ice"></div></fieldset>    <!-- 冰塊選項 -->
-        <fieldset class="paid-toppings" hidden><legend>要加錢的加料</legend><div class="chips topping-chips"></div></fieldset>  <!-- 要加錢的加料，有資料時才顯示 -->
-        <div class="two-col">                                         <!-- 加料和價格並排 -->
-          <label class="field"><span class="add-label">加料（可不填）</span><input type="text" name="add" maxlength="100" placeholder="例如：珍珠"></label>  <!-- 選填 -->
+        <fieldset><legend>加料（可複選，不加就不用勾）</legend><div class="chips topping-chips"></div></fieldset>  <!-- 五種加料的勾選框，JavaScript 會產生 -->
+        <div class="two-col">                                         <!-- 備註和價格並排 -->
+          <label class="field"><span>備註（可不填）</span><input type="text" name="add" maxlength="100" placeholder="例如：茶味重"></label>  <!-- 選填，只給店員看，不影響價格 -->
           <label class="field"><span>這杯多少錢</span><input type="number" name="price" required min="1" max="200" step="1" inputmode="numeric" placeholder="這杯的價格"></label>  <!-- 必填，1 到 200 的整數；有菜單時自動帶入並鎖住 -->
         </div>                                                        <!-- 並排結束 -->
         <button class="btn primary" type="submit">送出點單</button>     <!-- 送出 -->
@@ -270,10 +270,12 @@
       sugar: ["正常", "9分", "少糖", "半糖", "微糖", "無糖"],             // 甜度，照五十嵐菜單
       ice: ["正常冰", "少冰", "去冰", "熱飲"],                           // 冰塊，照五十嵐菜單
     };                                                              // 選項結束
+    const TOPPINGS = ["珍珠", "波霸", "椰果", "布丁", "冰淇淋"];        // 加料選項，必須和後端 CupCreate 的 toppings 一字不差
     const FIELD_NAMES = {                                           // 後端欄位名稱對應的中文，用來顯示 422 錯誤
       shop_name: "店家", who_order: "名字", drink_name: "飲料", size: "尺寸",  // 前四個欄位
-      sugar: "甜度", ice: "冰塊", add: "加料", price: "價格",            // 後四個欄位
+      sugar: "甜度", ice: "冰塊", add: "備註", toppings: "加料", price: "價格",  // 後五個欄位
     };                                                              // 對應表結束
+    let latestPriceRequest = 0;                                     // 第幾次試算價格；只採用最新那次的答案，避免舊答案晚回來蓋掉新的
     const NAME_KEY = "drink_order_name";                            // 在瀏覽器記住名字時用的鑰匙
     const DRINK_NOTES = { "麵茶": "古早味炒麵粉，含麩質" };            // 品名裡有這些字的飲料，在菜單上加一句說明
     const app = document.getElementById("app");                     // 主要內容的位置
@@ -414,6 +416,21 @@
       }                                                             // 每個選項結束
     }                                                               // buildChips 結束
 
+    function buildToppingChips(container) {                         // 產生加料的勾選框，跟 buildChips 一樣，但可以複選、可以都不選
+      for (const value of TOPPINGS) {                               // 每種加料做一次
+        const label = document.createElement("label");              // 外層 label，點文字也能勾
+        label.className = "chip";                                   // 和其他選項同樣的外觀
+        const input = document.createElement("input");              // 勾選框
+        input.type = "checkbox";                                    // 可以複選
+        input.name = "topping";                                     // 同一組用同一個名字，送出時用 getAll 一次拿全部
+        input.value = value;                                        // 送出時的值，例如「珍珠」
+        const text = document.createElement("span");                // 看得到的文字
+        text.textContent = value;                                   // 放入加料名稱；加多少錢由後端決定，這裡不寫
+        label.append(input, text);                                  // 勾選框和文字放進 label
+        container.append(label);                                    // 放進加料區
+      }                                                             // 每種加料結束
+    }                                                               // buildToppingChips 結束
+
     function renderPeople(root, cups) {                             // 依人分組顯示明細
       const groups = new Map();                                     // 名字對應到這個人點的所有杯
       for (const cup of cups) {                                     // 每一杯做一次
@@ -437,8 +454,9 @@
         for (const cup of personCups) {                             // 每一杯做一次
           const line = document.createElement("li");                // 一杯一行
           const desc = document.createElement("span");              // 飲料內容
-          const extra = cup.add ? `，加${cup.add}` : "";               // 有加料才顯示
-          desc.textContent = `${cup.drink_name}　${cup.size}／${cup.sugar}／${cup.ice}${extra}`;  // 例如「珍奶　中杯／半糖／微冰，加珍珠」
+          const toppingText = cup.toppings && cup.toppings.length ? `，加${cup.toppings.join("、")}` : "";  // 有加料才顯示，例如「，加珍珠、布丁」
+          const noteText = cup.add ? `（${cup.add}）` : "";            // 有備註才顯示，例如「（茶味重）」
+          desc.textContent = `${cup.drink_name}　${cup.size}／${cup.sugar}／${cup.ice}${toppingText}${noteText}`;  // 例如「阿薩姆紅茶　L／半糖／少冰，加珍珠、布丁（茶味重）」
           const price = document.createElement("span");             // 價格
           price.className = "num";                                  // 數字等寬
           price.textContent = `${cup.price} 元`;                     // 放入價格
@@ -452,7 +470,7 @@
       return groups.size;                                           // 回傳有幾個人點
     }                                                               // renderPeople 結束
 
-    function setupMenu(page, form, menu, toppings) {                // 畫出菜單看板；form 有值代表還在收單，要讓飲料可以從菜單選
+    function setupMenu(page, form, menu, shop) {                    // 畫出菜單看板；form 有值代表還在收單，要讓飲料可以從菜單選；shop 是店名，試算價格時用
       const board = page.querySelector(".menu-board");              // 菜單看板
       board.hidden = false;                                         // 有菜單才顯示
       board.open = window.matchMedia("(min-width: 860px)").matches; // 寬螢幕預設展開，手機預設收合，避免頁面太長
@@ -477,30 +495,12 @@
           select.append(group);                                     // 分組放進下拉選單
         }                                                           // 每個分類結束
         input.replaceWith(select);                                  // 用下拉選單取代輸入框
-        form.price.readOnly = true;                                 // 價格照菜單決定，鎖住不給改（五十嵐加料不用錢）
+        form.price.readOnly = true;                                 // 價格由後端試算，鎖住不給改
         form.price.placeholder = "選好飲料和尺寸後自動帶入";             // 提示價格會自己出現
-        const update = () => applyMenuItem(form, byName.get(select.value));  // 依目前選的飲料更新價格和熱飲
+        const update = () => applyMenuItem(form, byName.get(select.value), shop);  // 依目前選的飲料更新熱飲，並向後端試算價格
         select.addEventListener("change", update);                  // 換飲料時更新
         form.querySelectorAll("input[name=size]").forEach((r) => r.addEventListener("change", update));  // 換尺寸時也要更新價格
-        if (toppings.length) {                                      // 這家店有要加錢的加料
-          const box = form.querySelector(".topping-chips");         // 放加料選項的位置
-          for (const topping of toppings) {                         // 每一種加料做一次
-            const label = document.createElement("label");          // 外層 label，點文字也能勾
-            label.className = "chip";                               // 和其他選項同樣的外觀
-            const input = document.createElement("input");          // 勾選框
-            input.type = "checkbox";                                // 可以複選，布丁和冰淇淋能同時加
-            input.name = "paid_topping";                            // 欄位名稱
-            input.value = topping.name;                             // 加料名稱
-            input.dataset.price = topping.price;                    // 把加價記在元素上，算價格時用
-            input.addEventListener("change", update);               // 勾或取消時重新算價格
-            const text = document.createElement("span");            // 看得到的文字
-            text.textContent = `${topping.name} +${topping.price}`; // 例如「布丁 +15」
-            label.append(input, text);                              // 勾選框和文字放進 label
-            box.append(label);                                      // 放進加料區
-          }                                                         // 每種加料結束
-          form.querySelector(".paid-toppings").hidden = false;      // 顯示加料區
-          form.querySelector(".add-label").textContent = "其他加料（免費，可不填）";  // 文字框改成填免費的加料
-        }                                                           // 加料處理結束
+        form.querySelectorAll("input[name=topping]").forEach((c) => c.addEventListener("change", update));  // 勾或取消加料時也要更新價格
       }                                                             // 收單中處理結束
 
       const sections = board.querySelector(".menu-sections");       // 放分類的位置
@@ -555,21 +555,31 @@
       }                                                             // 每個分類結束
     }                                                               // setupMenu 結束
 
-    function applyMenuItem(form, item) {                            // 依選到的飲料，帶入價格並決定能不能選熱飲
+    async function applyMenuItem(form, item, shop) {                // 依選到的飲料決定能不能選熱飲，並向後端試算價格
       const hot = form.querySelector("input[name=ice][value='熱飲']");  // 熱飲那個選項
       if (hot) {                                                    // 有熱飲選項才處理
         hot.disabled = Boolean(item && !item.hot_ok);               // 菜單標 ◆ 的飲料不能選熱飲
         if (hot.disabled) hot.checked = false;                      // 已經勾了熱飲就取消，讓使用者重選冰塊
       }                                                             // 熱飲處理結束
+      const requestId = ++latestPriceRequest;                       // 這次試算的編號，每次加 1
       const size = form.querySelector("input[name=size]:checked");  // 目前選的尺寸
-      if (item && size) {                                           // 飲料和尺寸都選了
-        const base = size.value === "M" ? item.price_m : item.price_l;  // 照菜單查出飲料本身的價格
-        const extra = [...form.querySelectorAll("input[name=paid_topping]:checked")]  // 找出所有勾起來的要錢加料
-          .reduce((sum, box) => sum + Number(box.dataset.price), 0);  // 把它們的加價加總
-        form.price.value = base + extra;                            // 價格 = 飲料 + 加料
-      } else {                                                      // 飲料或尺寸還沒選
+      if (!item || !size) {                                         // 飲料或尺寸還沒選
         form.price.value = "";                                      // 價格先清空，避免留著上一杯的價格
-      }                                                             // 價格處理結束
+        return;                                                     // 不用試算
+      }                                                             // 檢查結束
+      const params = new URLSearchParams({ shop, drink: item.name, size: size.value });  // 組出 ?shop=五十嵐&drink=阿薩姆紅茶&size=L，中文會自動編碼
+      for (const box of form.querySelectorAll("input[name=topping]:checked")) params.append("toppings", box.value);  // 每個勾起來的加料加一次 &toppings=珍珠
+      form.price.value = "";                                        // 等後端回答之前先清空
+      form.price.placeholder = "計算中…";                            // 提示正在試算
+      try {                                                         // 嘗試試算
+        const result = await api(`/price?${params}`);               // 呼叫 GET /price，後端用 topping_price 算
+        if (requestId !== latestPriceRequest) return;               // 這段時間使用者又改了選項，這個答案已經過期，丟掉
+        form.price.value = result.price;                            // 放入後端算好的價格
+      } catch (error) {                                             // 試算失敗
+        if (requestId !== latestPriceRequest) return;               // 過期的錯誤也不用理
+        form.price.placeholder = "無法試算，請重選";                    // 價格維持空白，表單送不出去，避免用錯的價格
+        showToast(error.message, true);                             // 顯示錯誤原因
+      }                                                             // 試算結束
     }                                                               // applyMenuItem 結束
 
     async function renderOrder(orderId) {                           // 顯示某一張訂單
@@ -588,12 +598,6 @@
       try {                                                         // 嘗試載入菜單
         menu = await api(`/menu?shop=${encodeURIComponent(order.shop_name)}`);  // 呼叫 GET /menu?shop=店名；中文店名要先編碼才能放進網址
       } catch { }                                                   // 沒有菜單（404）就算了，飲料改回自己輸入
-      let toppings = [];                                            // 這家店要加錢的加料，沒有就是空的
-      if (menu) {                                                   // 有菜單才需要加料價格
-        try {                                                       // 嘗試載入加料
-          toppings = await api(`/toppings?shop=${encodeURIComponent(order.shop_name)}`);  // 呼叫 GET /toppings?shop=店名
-        } catch { }                                                 // 拿不到就當作沒有要錢的加料
-      }                                                             // 加料載入結束
 
       const page = fromTemplate("tpl-order");                       // 複製訂單頁樣板
       page.querySelector(".shop").textContent = order.shop_name;    // 店名
@@ -607,6 +611,7 @@
       const form = page.querySelector("#form-cup");                 // 點單表單
       if (order.is_open) {                                          // 還在收單
         page.querySelectorAll(".chips[data-group]").forEach((box) => buildChips(box, box.dataset.group));  // 產生尺寸、甜度、冰塊三組選項（加料區沒有 data-group，不在這裡產生）
+        buildToppingChips(page.querySelector(".topping-chips"));   // 產生五種加料的勾選框
         form.who_order.value = readSavedName();                     // 帶入上次填過的名字
         form.addEventListener("submit", (event) => submitCup(event, orderId, form));  // 按下送出時呼叫 submitCup
         page.querySelector("#close-order").addEventListener("click", () => closeOrder(orderId));  // 按下結單時呼叫 closeOrder
@@ -616,7 +621,7 @@
         page.querySelector(".actions").remove();                    // 拿掉結單按鈕
       }                                                             // 狀態判斷結束
       page.querySelector("#copy-link").addEventListener("click", copyLink);  // 複製連結按鈕
-      if (menu && menu.length) setupMenu(page, order.is_open ? form : null, menu, toppings);  // 有菜單就畫出菜單看板，收單中還要把飲料改成選單
+      if (menu && menu.length) setupMenu(page, order.is_open ? form : null, menu, order.shop_name);  // 有菜單就畫出菜單看板，收單中還要把飲料改成選單；店名給試算價格用
       document.querySelector(".page").classList.toggle("wide", Boolean(menu && menu.length));  // 有菜單時整頁放寬，放得下右邊的菜單
       app.replaceChildren(page);                                    // 把畫好的訂單頁放到畫面上
       document.title = `${order.shop_name}｜訂飲料`;                   // 分頁標題顯示店名
@@ -633,7 +638,8 @@
         size: data.get("size"),                                     // 尺寸
         sugar: data.get("sugar"),                                   // 甜度
         ice: data.get("ice"),                                       // 冰塊
-        add: [...data.getAll("paid_topping"), data.get("add").trim()].filter(Boolean).join("、") || null,  // 勾的加料和自己寫的加料合併成一段，例如「布丁、珍珠」；都沒有就送 null
+        toppings: data.getAll("topping"),                           // 勾起來的加料，例如 ["珍珠", "布丁"]；都沒勾就是 []
+        add: data.get("add").trim() || null,                        // 備註，例如「茶味重」；沒寫就送 null
         price: Number(data.get("price")),                           // 價格轉成數字
       };                                                            // JSON 結束
       try {                                                         // 嘗試送出
