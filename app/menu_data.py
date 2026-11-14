@@ -24,8 +24,6 @@ FIFTY_LAN_MENU = [                                      # 五十嵐菜單：(分
     ("找好茶", "麵茶綠", 50, 60, True),                    # 找好茶 17
     ("找好茶", "麵茶青", 50, 60, True),                    # 找好茶 18
     ("找好茶", "麵茶烏", 50, 60, True),                    # 找好茶 19
-
-    
     ("找口感", "四季春+珍波椰", 40, 50, True),              # 找口感 1
     ("找口感", "波霸紅茶", 40, 50, True),                  # 找口感 2，菜單寫「波霸紅/綠/青/烏」，拆成四項方便選
     ("找口感", "波霸綠茶", 40, 50, True),                  # 找口感 3
@@ -94,8 +92,28 @@ PAID_TOPPINGS = {                                       # 要另外收錢的加�
 }                                                       # 加料價格結束
 
 
-def topping_price(shop: str, add: str | None) -> int:   # 算出這杯的加料要多收多少錢
-    if not add:                                         # 沒有加料
-        return 0                                        # 不用加錢
-    prices = PAID_TOPPINGS.get(shop, {})                # 拿出這家店的加料價格，沒有就是空的
-    return sum(price for name, price in prices.items() if name in add)   # 加料文字裡有出現的要錢加料，價格加總起來
+TEAS = {"茉莉綠茶", "阿薩姆紅茶", "四季春青茶", "黃金烏龍"}   # 純茶，加珍波椰 M+5 L+10
+TOPPING_ADD_TOPPING = {"找口感", "招牌特調"}   # 有料，加珍波椰 +10
+
+
+def get_topping_group(category, name):   # 給它分類和品名，回傳標籤
+    if name in TEAS:                # 如果品名在純茶名單裡
+        return "純茶"                         # 就回傳"純茶"
+    if category in TOPPING_ADD_TOPPING :          # 如果分類是找口感或招牌特調
+        return "有料"                     # 就回傳"有料"
+    return "一般"                          # 都沒有符合回傳"一般"
+
+def topping_price(category, name, size, toppings):   # 算這杯的加料要多收多少：分類、品名、杯型、加料清單
+    group = get_topping_group(category, name)         # 第 1 步：請店員貼標籤，例如 "純茶"
+    total = 0                                         # 第 2 步：從 0 開始算
+    for topping in toppings:                          # 第 3 步：加的料一個一個看
+        if topping in {"布丁", "冰淇淋"}:              # 布丁或冰淇淋
+            total += 15                               # 不管哪種飲料都 +15
+        elif topping in {"珍珠", "波霸", "椰果"}:      # 珍波椰
+            if group == "純茶":                       # 純茶
+                total += 5 if size == "M" else 10      # M 杯 +5 L 杯 +10
+            elif group == "有料":                      # 有料
+                total += 10                            # 不管 M L 都 +10
+        else:
+            raise ValueError("{}不在規則裡".format(topping))   # 不認識的料直接報錯
+    return total                                      # 第 4 步：回傳加料總共多少

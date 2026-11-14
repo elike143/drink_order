@@ -48,8 +48,8 @@ def create_cup(order_id: int, data: CupCreate, db: Session = Depends(get_db)):  
         raise HTTPException(status_code=400, detail="菜單上沒有這杯飲料")   # 拒絕
     if data.ice == "熱飲" and not item.hot_ok:                        # 菜單標 ◆ 的飲料卻點熱飲
         raise HTTPException(status_code=400, detail="這杯飲料不建議做熱飲")   # 拒絕
-    price = (item.price_m if data.size == "M" else item.price_l) + topping_price(order.shop_name, data.add)   # 飲料價格加上要錢的加料
-    cup = Cup(**data.model_dump(exclude={"price"}), price=price, order_id=order_id)   # 不用前端送來的價格，換成菜單價格
+    price = (item.price_m if data.size == "M" else item.price_l) + topping_price(item.category, item.name, data.size, data.toppings)  # 飲料價格加上要錢的加料
+    cup = Cup(**data.model_dump(exclude={"price","toppings"}), price=price, toppings="、".join(data.toppings), order_id=order_id)   # 用model.dump把前端送來的資料轉成字典並拿除價格和加料
     db.add(cup)                                    # 放進暫存區
     db.commit()                                    # 正式存進資料庫
     db.refresh(cup)                                # 去資料庫拿回最新的樣子，這時才有 id

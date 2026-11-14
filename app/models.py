@@ -25,6 +25,7 @@ class Cup(Base):                                                  # 定義一杯
     sugar: Mapped[str] = mapped_column(String(100))               # 糖分：文字，必填
     size: Mapped[str] = mapped_column(String(100))                # 尺寸：文字，必填
     add: Mapped[str | None] = mapped_column(String(100))          # 加料：文字，選填
+    toppings: Mapped[str | None] = mapped_column(String(100))      # 加料：文字，選填
     price: Mapped[int]                                            # 單杯價格：整數，必填
 
 class MenuItem(Base):                                             # 菜單品項，一筆是一種飲料

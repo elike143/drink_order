@@ -18,12 +18,14 @@ class CupCreate(BaseModel):                                  # 同學新增一�
     sugar: Literal["正常", "9分", "少糖", "半糖", "微糖", "無糖"]   # 糖分：只能是這五個值之一，送其他值會被拒絕
     size: Literal["M", "L"]                     # 尺寸：只能是這兩個值之一，送其他值會被拒絕
     add: str | None = Field(default=None, max_length=100)    # 加料：選填，沒送就是 None；有送最多 100 字
+    toppings: list[Literal["珍珠", "波霸", "椰果", "布丁", "冰淇淋"]] = Field(default=[])  # 加料：可複選，也可都不選
     price: int = Field(ge=1, le=200)                         # 價格：整數，必須 >=1 且 <= 200（le = 小於等於）
 
 class CupOut(CupCreate):                                     # API 回傳時，每一杯存好的飲料的格式
     id: int                                                  # 編號：整數，必填
     model_config = ConfigDict(from_attributes=True)          # 允許用.去物件取值
     order_id: int                                              # 這杯屬於哪張訂單
+    toppings: str | None = None                             # 將
 
 class MenuItemOut(BaseModel):                                     # API 回傳菜單品項的格式
     id: int                                                       # 編號
