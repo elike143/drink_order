@@ -308,7 +308,7 @@
           return `${FIELD_NAMES[field] || field}：${e.msg}`;          // 例如「價格：Input should be less than or equal to 200」
         }).join("；");                                               // 用分號串起來
       }                                                             // 422 處理結束
-      if (status >= 500) return "伺服器出錯了，請看 uvicorn 終端機的錯誤訊息。";  // 5xx 是後端自己的問題
+      if (status >= 500) return "伺服器出錯了，請稍後再試。";              // 5xx 是後端自己的問題；上線後使用者看不到終端機，原因要去伺服器的 log 查
       return `請求失敗（${status}）`;                                  // 其他情況顯示狀態碼
     }                                                               // errorMessage 結束
 
@@ -658,8 +658,13 @@
 
     async function closeOrder(orderId) {                            // 結單
       if (!confirm("結單後就不能再點了。確定要結單嗎？")) return;          // 先確認，按取消就不做
+      const token = prompt("請輸入結單密碼");                          // 結單要密碼，避免拿到連結的人都能結單
+      if (!token) return;                                           // 沒輸入或按取消就不做
       try {                                                         // 嘗試結單
-        await api(`/orders/${orderId}/close`, { method: "POST" });  // 呼叫 POST /orders/{order_id}/close
+        await api(`/orders/${orderId}/close`, {                     // 呼叫 POST /orders/{order_id}/close
+          method: "POST",                                           // 方法是 POST
+          headers: { "X-Admin-Token": token },                      // 把密碼放在請求的 header 裡送給後端
+        });                                                         // 呼叫結束
         showToast("已結單");                                          // 提示成功
         await renderOrder(orderId);                                 // 重新載入，畫面會變成已結單
       } catch (error) {                                             // 失敗時

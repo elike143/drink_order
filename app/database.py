@@ -7,7 +7,7 @@ load_dotenv()                              #把env檔存入環境變數讓os讀�
 DATABASE_URL= os.environ["DATABASE_URL"]   #讀取env裡面的url，並將其存入DATABASE_URL變數中
 
     
-engine = create_engine(DATABASE_URL, connect_args={"connect_timeout": 5})   #建立總機帶入url，5秒內連不到直接報錯
+engine = create_engine(DATABASE_URL, connect_args={"connect_timeout": 15})   #建立總機帶入url，5秒內連不到直接報錯
 
 SessionLocal = sessionmaker(autoflush=False, bind=engine) #設定sessionLocal工廠的行為和總機
 

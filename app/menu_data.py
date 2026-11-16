@@ -1,4 +1,4 @@
-from sqlalchemy import func, select                     # func 用來計數，select 用來組查詢
+from sqlalchemy import  select                          # select 用來組查詢
 from sqlalchemy.orm import Session                      # 資料庫 session 的型別標註
 from app.models import MenuItem                         # 菜單品項的資料表
 
@@ -74,17 +74,26 @@ FIFTY_LAN_MENU = [                                      # 五十嵐菜單：(分
 ]                                                       # 菜單結束
 
 
-def seed_menu(db: Session) -> None:                     # 把五十嵐菜單寫進資料庫，已經寫過就跳過
-    count = db.scalar(                                  # 先數一數資料庫裡已經有幾筆五十嵐的品項
-        select(func.count()).select_from(MenuItem).where(MenuItem.shop == SHOP)  # SELECT COUNT(*) FROM menu_items WHERE shop = '五十嵐'
-    ) or 0                                              # 萬一拿到 None 就當作 0
-    if count:                                           # 已經有資料
-        return                                          # 不要重複寫入，直接結束
-    db.add_all(                                         # 一次加入多筆
-        MenuItem(shop=SHOP, category=c, name=n, price_m=m, price_l=l, hot_ok=h)  # 把每一筆資料轉成 MenuItem 物件
-        for c, n, m, l, h in FIFTY_LAN_MENU             # 逐筆拆開成分類、品名、M、L、熱飲
-    )                                                   # 加入結束
-    db.commit()                                         # 正式寫進資料庫
+def seed_menu(db: Session) -> None:                     # 讓資料庫的菜單跟 FIFTY_LAN_MENU 一致
+    existing = {                                        # 先把資料庫裡五十嵐的品項全部拿出來，用品名當索引
+        item.name: item                                 # 品名 → 那一筆 MenuItem
+        for item in db.scalars(select(MenuItem).where(MenuItem.shop == SHOP))   # SELECT * FROM menu_items WHERE shop = '五十嵐'
+    }                                                   # 字典結束
+    names_in_file = set()                               # 記錄檔案裡有哪些品名，等一下判斷要刪哪些
+    for c, n, m, l, h in FIFTY_LAN_MENU:                # 檔案裡的品項一筆一筆看
+        names_in_file.add(n)                            # 記下這個品名
+        item = existing.get(n)                          # 資料庫有沒有同名的品項，沒有會拿到 None
+        if item is None:                                # 資料庫沒有：新品項
+            db.add(MenuItem(shop=SHOP, category=c, name=n, price_m=m, price_l=l, hot_ok=h))   # 新增
+        else:                                           # 資料庫已經有
+            item.category = c                           # 更新分類
+            item.price_m = m                            # 更新 M 價格
+            item.price_l = l                            # 更新 L 價格
+            item.hot_ok = h                             # 更新能不能熱飲
+    for name, item in existing.items():                 # 資料庫裡的品項一筆一筆看
+        if name not in names_in_file:                   # 檔案裡已經沒有這個品名
+            db.delete(item)                             # 從資料庫刪掉
+    db.commit()                                         # 新增、更新、刪除一次存進資料庫
 
 TEAS = {"茉莉綠茶", "阿薩姆紅茶", "四季春青茶", "黃金烏龍"}   # 純茶，加珍波椰 M+5 L+10
 TOPPING_ADD_TOPPING = {"找口感", "招牌特調"}   # 有料，加珍波椰 +10
