@@ -6,7 +6,7 @@ from app.schemas import CupOut, CupCreate, OrderCreate, OrderOut, MenuItemOut   
 from app.models import Base,Cup,Order,MenuItem   #匯入 models 來定義資料表      
 from fastapi.exceptions import HTTPException #匯入 HTTPException 來回傳錯誤訊息
 from fastapi.staticfiles import StaticFiles
-from app.menu_data import seed_menu, topping_price, PAID_TOPPINGS   # 多匯入加料價格表和計算函式
+from app.menu_data import seed_menu, topping_price   # 匯入建立菜單和計算加料價格的函式
 
 Base.metadata.create_all(bind=engine)                #建立資料庫表格
 app = FastAPI(title = "Drink Order API")             #做一個名字叫Drink Order API的API存進app裡
@@ -78,11 +78,6 @@ def list_shops(db: Session = Depends(get_db)):                    # 只需要資
     return db.scalars(                                            # 執行查詢
         select(MenuItem.shop).distinct().order_by(MenuItem.shop)  # 從菜單表拿出所有店名，去掉重複，照名字排序
     ).all()                                                       # 全部放進 list，例如 ["五十嵐"]
-
-@app.get("/toppings")                                             # 公告：有人要看某家店哪些加料要加錢
-def list_toppings(shop: str):                                     # shop 是查詢參數：/toppings?shop=五十嵐；這支不用查資料庫
-    prices = PAID_TOPPINGS.get(shop, {})                          # 拿出這家店的加料價格，沒有就是空的
-    return [{"name": name, "price": price} for name, price in prices.items()]   # 轉成 [{"name": "布丁", "price": 15}, ...]
 
 @app.get("/price")                                                        # 公告：有人要試算一杯飲料多少錢
 def get_price(                                                            # 店員：試算價格
