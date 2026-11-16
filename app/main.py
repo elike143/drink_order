@@ -1,4 +1,4 @@
-from fastapi import FastAPI,Depends,Query,Header    # 匯入 FastAPI 來建立 API，匯入 Depends 來取得資料庫連線，匯入 Query 來取得查詢參數,匯入 Header 來取得請求的 header
+from fastapi import FastAPI,Depends,Query    # 匯入 FastAPI 來建立 API，匯入 Depends 來取得資料庫連線，匯入 Query 來取得查詢參數
 from sqlalchemy import select          #匯入 select 來查詢資料庫
 from sqlalchemy.orm import Session     #匯入 Session 來取得資料庫連線
 from app.database import get_db ,engine , SessionLocal       #匯入 get_db 來取得資料庫連線，匯入 engine 來建立資料庫表格
@@ -6,7 +6,8 @@ from app.schemas import CupOut, CupCreate, OrderCreate, OrderOut, MenuItemOut   
 from app.models import Base,Cup,Order,MenuItem   #匯入 models 來定義資料表      
 from fastapi.exceptions import HTTPException #匯入 HTTPException 來回傳錯誤訊息
 from fastapi.staticfiles import StaticFiles
-from app.menu_data import seed_menu, topping_price   # 匯入建立菜單和計算加料價格的函式
+from app.menus.menu_data import seed_menu, cup_price   # 匯入建立菜單、計算一杯總價的函式
+from typing import Literal                            # 匯入 Literal，限制查詢參數只能是幾個固定值
 
 ## 新增結單密碼
 from fastapi import Header                        #匯入Header
@@ -57,7 +58,12 @@ def create_cup(order_id: int, data: CupCreate, db: Session = Depends(get_db)):  
         raise HTTPException(status_code=400, detail="菜單上沒有這杯飲料")   # 拒絕
     if data.ice == "熱飲" and not item.hot_ok:                        # 菜單標 ◆ 的飲料卻點熱飲
         raise HTTPException(status_code=400, detail="這杯飲料不建議做熱飲")   # 拒絕
-    price = (item.price_m if data.size == "M" else item.price_l) + topping_price(item.category, item.name, data.size, data.toppings)  # 飲料價格加上要錢的加料
+    if item.category == "Cheese MILK FOAM" and data.ice != "少冰":    # 得正的奶蓋系列菜單規定固定少冰
+        raise HTTPException(status_code=400, detail="奶蓋系列固定少冰")   # 拒絕
+    try:                                                              # 算價格時可能遇到店家規則不允許的情況
+        price = cup_price(item, data.size, data.toppings)             # 飲料價格加上加料，規則都在 cup_price 裡
+    except ValueError as e:                                           # 例如只有 M 杯卻點 L、得正點波霸
+        raise HTTPException(status_code=400, detail=str(e))           # 照規則拒絕，回 400 和原因
     cup = Cup(**data.model_dump(exclude={"price"}), price=price, order_id=order_id)   # 客人的單整包交給 Cup，只拿掉價格改用後端算的；加料清單直接存
     db.add(cup)                                    # 放進暫存區
     db.commit()                                    # 正式存進資料庫
@@ -99,12 +105,15 @@ def list_shops(db: Session = Depends(get_db)):                    # 只需要資
 def get_price(                                                            # 店員：試算價格
     shop: str,                                                            # 查詢參數：哪家店，例如 ?shop=五十嵐
     drink: str,                                                           # 查詢參數：哪杯飲料
-    size: str,                                                            # 查詢參數：M 或 L
+    size: Literal["M", "L"],                                              # 查詢參數：M 或 L
     toppings: list[str] = Query(default=[]),                              # 查詢參數：加料清單，網址裡可以重複出現
     db: Session = Depends(get_db),                                        # 資料庫鑰匙
 ):
     item = db.scalar(select(MenuItem).where(MenuItem.shop == shop, MenuItem.name == drink))   # 用店名和品名，從菜單表查出這杯飲料
     if item is None:                                                      # 菜單上沒有這杯
         raise HTTPException(status_code=404, detail="菜單上沒有這杯飲料")   # 回傳 404
-    price = (item.price_m if size == "M" else item.price_l) + topping_price(item.category, item.name, size, toppings)   # 飲料本身的價格 + 加料的價格
+    try:                                                                  # 算價格時可能遇到店家規則不允許的情況
+        price = cup_price(item, size, toppings)                           # 飲料本身的價格 + 加料的價格，和新增一杯用同一個函式
+    except ValueError as e:                                               # 例如只有 M 杯卻點 L、得正點波霸
+        raise HTTPException(status_code=400, detail=str(e))               # 回 400 和原因，不再變成 500
     return {"price": price}     
