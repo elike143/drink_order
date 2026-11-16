@@ -17,7 +17,7 @@ class CupCreate(BaseModel):                                  # 同學新增一�
     ice: Literal["正常冰", "少冰", "去冰", "熱飲"]           # 冰塊：只能是這四個值之一，送其他值會被拒絕
     sugar: Literal["正常", "9分", "少糖", "半糖", "微糖", "無糖"]   # 糖分：只能是這五個值之一，送其他值會被拒絕
     size: Literal["M", "L"]                     # 尺寸：只能是這兩個值之一，送其他值會被拒絕
-    add: str | None = Field(default=None, max_length=100)    # 加料：選填，沒送就是 None；有送最多 100 字
+    add: str | None = Field(default=None, max_length=100)    # 備註：選填，沒送就是 None；有送最多 100 字
     price: int = Field(ge=1, le=200)                         # 價格：整數，必須 >=1 且 <= 200（le = 小於等於）
     toppings: list[Literal["珍珠", "波霸", "椰果", "布丁", "冰淇淋", "黃金珍珠", "焙烏龍茶凍"]] = Field(default=[])  # 加料：可複選；前五種是五十嵐、後兩種是得正，哪家店能加什麼由 cup_price 檢查
 

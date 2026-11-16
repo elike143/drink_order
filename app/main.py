@@ -1,4 +1,4 @@
-from fastapi import FastAPI,Depends,Query,Header    # 匯入 FastAPI 來建立 API，匯入 Depends 來取得資料庫連線，匯入 Query 來取得查詢參數,匯入 Header 來取得請求的 header
+from fastapi import FastAPI,Depends,Query    # 匯入 FastAPI 來建立 API，匯入 Depends 來取得資料庫連線，匯入 Query 來取得查詢參數
 from sqlalchemy import select          #匯入 select 來查詢資料庫
 from sqlalchemy.orm import Session     #匯入 Session 來取得資料庫連線
 from app.database import get_db ,engine , SessionLocal       #匯入 get_db 來取得資料庫連線，匯入 engine 來建立資料庫表格
