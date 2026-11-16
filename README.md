@@ -4,6 +4,10 @@
 
 這是我轉職後端工程師培訓的結訓專題，重點放在 **API 設計、資料庫設計，以及「價格只信任後端」的計價規則**。
 
+**線上版**：https://你的服務名稱.onrender.com （用手機也能直接點）
+
+> 線上版使用 Render 免費方案，閒置 15 分鐘會休眠，休眠後第一次開啟要等大約 1 分鐘。
+
 ## 功能
 
 - **開單**：從有菜單的店家清單選一家，建立一張訂單
@@ -22,6 +26,7 @@
 | 環境 | Docker Compose（資料庫）、python-dotenv |
 | 前端 | 原生 HTML、CSS、JavaScript（單一檔案，由 FastAPI 提供） |
 | 版本控制 | Git、GitHub（功能分支、Pull Request） |
+| 部署 | Render（Web Service）、Neon（雲端 PostgreSQL），兩者都在新加坡機房 |
 
 ## 架構
 
@@ -30,8 +35,15 @@ flowchart LR
     A[瀏覽器<br>index.html] -- JSON --> B[FastAPI<br>main.py]
     B -- 檢查送進來的資料 --> C[schemas.py<br>Pydantic]
     B -- 計價規則 --> D[menu_data.py]
-    B -- SQLAlchemy --> E[(PostgreSQL<br>Docker)]
+    B -- SQLAlchemy --> E[(PostgreSQL)]
 ```
+
+| 環境 | 後端跑在哪 | 資料庫 | 設定從哪來 |
+| --- | --- | --- | --- |
+| 開發 | 自己電腦的 uvicorn | Docker 容器 | `.env` 檔 |
+| 正式 | Render | Neon | Render 後台的環境變數 |
+
+同一份程式碼，靠環境變數切換連到哪個資料庫、用哪組結單密碼，程式本身不用知道自己跑在哪個環境。
 
 ## 快速開始
 
@@ -57,7 +69,7 @@ uvicorn app.main:app --reload                            # 啟動後端；第一
 
 | 網址 | 內容 |
 | --- | --- |
-| http://127.0.0.1:8000/static/index.html | 點餐網頁 |
+| http://127.0.0.1:8000/ | 點餐網頁 |
 | http://127.0.0.1:8000/docs | API 文件，可以直接在頁面上測試 |
 
 ## API
@@ -114,17 +126,40 @@ drink_order/
 └── .env.example         # 環境變數範本（真正的 .env 不進版本控制）
 ```
 
+## 部署
+
+正式環境：Render 跑後端，Neon 放資料庫。部署不需要改程式碼，只要在 Render 設定環境變數。
+
+| Render 設定 | 值 |
+| --- | --- |
+| Branch | `main` |
+| Region | Singapore（跟 Neon 同一區，查詢延遲最低） |
+| Build Command | `pip install -r requirements.txt` |
+| Start Command | `uvicorn app.main:app --host 0.0.0.0 --port $PORT` |
+
+| 環境變數 | 說明 |
+| --- | --- |
+| `DATABASE_URL` | Neon 的連線網址，開頭要從 `postgresql://` 改成 `postgresql+psycopg://`（專案用的是 psycopg 3） |
+| `ADMIN_TOKEN` | 正式環境的結單密碼，跟開發環境的不同 |
+| `PYTHON_VERSION` | 跟本機開發用的版本一致 |
+
+啟動時會自動建表並寫入菜單，所以第一次部署不用另外初始化資料庫。
+
 ## 資安與設計重點
 
 - **價格只信任後端**：前端送來的價格一律重算
 - **參數化查詢**：所有查詢都透過 SQLAlchemy ORM，避免 SQL injection
 - **資料驗證**：甜度、冰塊、尺寸、加料用 Pydantic 的 `Literal` 限制合法值
-- **機密不進版控**：資料庫密碼放在 `.env`，已列入 `.gitignore`
+- **結單要密碼**：結單 API 要在 header 帶 `X-Admin-Token`，用 `secrets.compare_digest` 比對，避免從回應時間猜出密碼；密碼錯誤回 403
+- **機密不進版控**：資料庫密碼和結單密碼放在 `.env`，已列入 `.gitignore`
+- **開發和正式環境分開**：兩邊的資料庫密碼、結單密碼都不同；正式環境的密碼只存在 Render 後台
+- **設定缺了就不啟動**：用 `os.environ["..."]` 讀設定，少了必要的環境變數會直接啟動失敗，不會帶著錯誤設定上線
 - **資料庫只開放本機**：Docker 只綁定 `127.0.0.1:5432`
 
 ## 已知限制與未來規劃
 
-- **沒有身分驗證**：拿到連結的人都能點單和結單。正式上線前要加開單密碼或登入
+- **點單沒有身分驗證**：結單已經要密碼，但拿到連結的人都能開單和點單。之後可以加登入，或每張單產生專屬連結
+- **免費方案會休眠**：Render 免費方案閒置 15 分鐘後休眠，第一次開啟較慢
 - **資料表變更要重建資料庫**：目前用 `create_all` 建表，它不會修改已存在的表。之後改用 Alembic 管理資料庫遷移
 - **加料規則目前只適用五十嵐**：多店家時要改成依店家設定規則
 - **後台分析**：預計用 Pandas 統計熱門飲料、加料與金額
