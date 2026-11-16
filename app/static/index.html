@@ -129,7 +129,8 @@
     .order-main { min-width: 0; }                                   /* 左欄可以縮小，避免被長文字撐開 */
     @media (min-width: 860px) {                                     /* 螢幕夠寬時 */
       .order-grid { grid-template-columns: minmax(0, 1fr) 360px; align-items: start; }  /* 左邊點單撐開，右邊菜單固定 360px */
-      .menu-board { position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow-y: auto; margin-top: 24px; }  /* 菜單捲動時黏在畫面上 */
+      .menu-board { position: sticky; top: 16px; margin-top: 24px; }  /* 菜單看板黏在畫面上；看板本身不捲動，手繪框線才不會跟著跑掉 */
+      .menu-sections { max-height: calc(100vh - 170px); overflow-y: auto; padding-right: 4px; }  /* 只有品項區在框框裡捲動；170px 留給標題、說明和上下留白 */
     }                                                               /* 寬螢幕設定結束 */
 
     .slip { padding: 20px 18px; margin-top: 24px; --r: 24px; }      /* 點單卡片 */
