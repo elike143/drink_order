@@ -36,5 +36,5 @@ class MenuItem(Base):                                             # 菜單品項
     category: Mapped[str] = mapped_column(String(20))             # 菜單分類，例如「找好茶」
     name: Mapped[str] = mapped_column(String(50))                 # 品名
     price_m: Mapped[int]                                          # M 杯價格
-    price_l: Mapped[int]                                          # L 杯價格
+    price_l: Mapped[int|None]                                          # L 杯價格
     hot_ok: Mapped[bool] = mapped_column(default=True)            # 可不可以做熱飲；菜單標 ◆ 的是 False

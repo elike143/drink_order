@@ -1,9 +1,3 @@
-from sqlalchemy import  select                          # select 用來組查詢
-from sqlalchemy.orm import Session                      # 資料庫 session 的型別標註
-from app.models import MenuItem                         # 菜單品項的資料表
-
-SHOP = "五十嵐"                                          # 這份菜單屬於哪一家店，查詢時用這個名字
-
 FIFTY_LAN_MENU = [                                      # 五十嵐菜單：(分類, 品名, M 價格, L 價格, 可不可以做熱飲)
     ("找好茶", "茉莉綠茶", 35, 40, True),                  # 找好茶 1
     ("找好茶", "阿薩姆紅茶", 35, 40, True),                # 找好茶 2
@@ -71,52 +65,4 @@ FIFTY_LAN_MENU = [                                      # 五十嵐菜單：(分
     ("找冰淇淋", "冰淇淋紅茶", 50, 60, True),              # 找冰淇淋 1，菜單沒有標 ◆，照菜單填 True
     ("找冰淇淋", "芒果青", 50, 60, True),                  # 找冰淇淋 2
     ("找冰淇淋", "荔枝烏龍", 50, 60, True),                # 找冰淇淋 3
-]                                                       # 菜單結束
-
-
-def seed_menu(db: Session) -> None:                     # 讓資料庫的菜單跟 FIFTY_LAN_MENU 一致
-    existing = {                                        # 先把資料庫裡五十嵐的品項全部拿出來，用品名當索引
-        item.name: item                                 # 品名 → 那一筆 MenuItem
-        for item in db.scalars(select(MenuItem).where(MenuItem.shop == SHOP))   # SELECT * FROM menu_items WHERE shop = '五十嵐'
-    }                                                   # 字典結束
-    names_in_file = set()                               # 記錄檔案裡有哪些品名，等一下判斷要刪哪些
-    for c, n, m, l, h in FIFTY_LAN_MENU:                # 檔案裡的品項一筆一筆看
-        names_in_file.add(n)                            # 記下這個品名
-        item = existing.get(n)                          # 資料庫有沒有同名的品項，沒有會拿到 None
-        if item is None:                                # 資料庫沒有：新品項
-            db.add(MenuItem(shop=SHOP, category=c, name=n, price_m=m, price_l=l, hot_ok=h))   # 新增
-        else:                                           # 資料庫已經有
-            item.category = c                           # 更新分類
-            item.price_m = m                            # 更新 M 價格
-            item.price_l = l                            # 更新 L 價格
-            item.hot_ok = h                             # 更新能不能熱飲
-    for name, item in existing.items():                 # 資料庫裡的品項一筆一筆看
-        if name not in names_in_file:                   # 檔案裡已經沒有這個品名
-            db.delete(item)                             # 從資料庫刪掉
-    db.commit()                                         # 新增、更新、刪除一次存進資料庫
-
-TEAS = {"茉莉綠茶", "阿薩姆紅茶", "四季春青茶", "黃金烏龍"}   # 純茶，加珍波椰 M+5 L+10
-TOPPING_ADD_TOPPING = {"找口感", "招牌特調"}   # 有料，加珍波椰 +10
-
-
-def get_topping_group(category, name):   # 給它分類和品名，回傳標籤
-    if name in TEAS:                # 如果品名在純茶名單裡
-        return "純茶"                         # 就回傳"純茶"
-    if category in TOPPING_ADD_TOPPING :          # 如果分類是找口感或招牌特調
-        return "有料"                     # 就回傳"有料"
-    return "一般"                          # 都沒有符合回傳"一般"
-
-def topping_price(category, name, size, toppings):   # 算這杯的加料要多收多少：分類、品名、杯型、加料清單
-    group = get_topping_group(category, name)         # 第 1 步：請店員貼標籤，例如 "純茶"
-    total = 0                                         # 第 2 步：從 0 開始算
-    for topping in toppings:                          # 第 3 步：加的料一個一個看
-        if topping in {"布丁", "冰淇淋"}:              # 布丁或冰淇淋
-            total += 15                               # 不管哪種飲料都 +15
-        elif topping in {"珍珠", "波霸", "椰果"}:      # 珍波椰
-            if group == "純茶":                       # 純茶
-                total += 5 if size == "M" else 10      # M 杯 +5 L 杯 +10
-            elif group == "有料":                      # 有料
-                total += 10                            # 不管 M L 都 +10
-        else:
-            raise ValueError("{}不在規則裡".format(topping))   # 不認識的料直接報錯
-    return total                                      # 第 4 步：回傳加料總共多少
+]                                                       # 菜單結束，共66項
