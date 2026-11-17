@@ -311,6 +311,7 @@
 
     const orderKey = (orderId) => `drink_order_manage_${orderId}`;  // 存「開單管理碼」用的鑰匙，每張單一個
     const cupKey = (cupId) => `drink_order_cup_${cupId}`;           // 存「刪除這杯的碼」用的鑰匙，每杯一個
+    const ADMIN_KEY = "drink_order_admin_token";                    // 存「網站管理者密碼」用的鑰匙，只有管理者自己的瀏覽器會有
 
     function readToken(key) {                                       // 讀出這個瀏覽器存的管理碼
       try { return localStorage.getItem(key); }                     // 有就回傳
@@ -362,8 +363,59 @@
     function route() {                                              // 依網址決定顯示哪一頁
       const match = location.hash.match(/^#\/orders\/(\d+)$/);      // 網址是 #/orders/數字 就是訂單頁
       if (match) renderOrder(Number(match[1]));                     // 顯示那張訂單
+      else if (location.hash === "#/admin") renderAdmin();          // 網址是 #/admin 就是管理者設定頁
       else renderHome();                                            // 其他情況顯示首頁
     }                                                               // route 結束
+
+    function renderAdmin() {                                        // 管理者設定頁：在這個瀏覽器輸入一次密碼，之後每張單都能結
+      document.querySelector(".page").classList.remove("wide");     // 一般寬度
+      document.title = "管理者模式｜訂飲料";                            // 分頁標題
+      const saved = readToken(ADMIN_KEY);                           // 這個瀏覽器是不是已經是管理者
+      const card = document.createElement("form");                  // 用表單，按 Enter 也能送出
+      card.className = "slip wob";                                  // 跟點單紙一樣的卡片樣式
+      const title = document.createElement("h3");                   // 標題
+      title.className = "slip-title";                               // 套用卡片標題樣式
+      title.textContent = "管理者模式";                                // 標題文字
+      const status = document.createElement("p");                   // 目前狀態
+      status.textContent = saved ? "這個瀏覽器已經是管理者，每張收單中的訂單都會出現結單按鈕。" : "輸入管理者密碼後，這個瀏覽器的每張訂單都會出現結單按鈕。";  // 依狀態顯示說明
+      const field = document.createElement("label");                // 密碼欄位
+      field.className = "field";                                    // 套用欄位樣式
+      const label = document.createElement("span");                 // 欄位名稱
+      label.textContent = "管理者密碼";                                // 欄位名稱文字
+      const input = document.createElement("input");                // 輸入框
+      input.type = "password";                                      // 密碼欄位：打的字會變成圓點，接投影機也看不到
+      input.autocomplete = "off";                                   // 不要讓瀏覽器自動填入
+      input.required = !saved;                                      // 還沒設定時一定要填
+      field.append(label, input);                                   // 名稱和輸入框放在一起
+      const save = document.createElement("button");                // 儲存按鈕
+      save.type = "submit";                                         // 按下會送出表單
+      save.className = "btn primary wob";                           // 主要按鈕樣式
+      save.textContent = "儲存，開啟管理者模式";                         // 按鈕文字
+      card.append(title, status, field, save);                      // 先放進卡片
+      if (saved) {                                                  // 已經是管理者時，提供關閉的方法
+        const off = document.createElement("button");               // 關閉按鈕
+        off.type = "button";                                        // 一般按鈕
+        off.className = "btn wob";                                  // 一般按鈕樣式
+        off.textContent = "關閉管理者模式";                              // 按鈕文字
+        off.addEventListener("click", () => {                       // 按下時
+          removeToken(ADMIN_KEY);                                   // 從這個瀏覽器刪掉密碼
+          showToast("已關閉管理者模式");                                  // 提示
+          location.hash = "#/";                                     // 回首頁
+        });                                                         // 關閉事件結束
+        card.append(off);                                           // 放進卡片
+      }                                                             // 關閉按鈕結束
+      card.addEventListener("submit", (event) => {                  // 按下儲存時
+        event.preventDefault();                                     // 不要重新整理頁面
+        if (!input.value) return;                                   // 沒填就不做
+        saveToken(ADMIN_KEY, input.value);                          // 存在這個瀏覽器；密碼對不對，結單時由後端判斷
+        showToast("已開啟管理者模式");                                    // 提示
+        location.hash = "#/";                                       // 回首頁
+      });                                                           // 儲存事件結束
+      const back = document.createElement("a");                     // 回首頁的連結
+      back.href = "#/";                                             // 連到首頁
+      back.textContent = "回到所有訂單";                                // 連結文字
+      app.replaceChildren(back, card);                              // 換上管理者設定頁
+    }                                                               // renderAdmin 結束
 
     async function renderHome() {                                   // 顯示首頁
       app.replaceChildren(fromTemplate("tpl-home"));                // 換成首頁的內容
@@ -707,6 +759,12 @@
       const actions = page.querySelector(".actions");               // 底部按鈕區
       const closeButton = page.querySelector("#close-order");       // 結單按鈕
       const token = readToken(orderKey(order.id));                  // 這個瀏覽器有沒有這張單的管理碼，也就是「是不是開單的人」
+      const adminToken = readToken(ADMIN_KEY);                      // 這個瀏覽器是不是網站管理者
+      if (!token && adminToken && order.is_open) {                  // 不是開單的人，但是管理者，而且還在收單
+        closeButton.textContent = "結單（管理者）";                       // 標示這是用管理者身分結單
+        closeButton.addEventListener("click", () => closeOrder(order.id, adminToken, true));  // 帶著管理者密碼結單
+        return;                                                     // 管理者只需要結單按鈕
+      }                                                             // 管理者處理結束
       if (!token) {                                                 // 不是開單的人
         closeButton.remove();                                       // 拿掉結單按鈕
         if (order.is_open) {                                        // 還在收單時，說明一下為什麼沒有結單按鈕
@@ -733,12 +791,12 @@
       if (!actions.children.length) actions.remove();               // 什麼按鈕都沒有就整個拿掉
     }                                                               // setupActions 結束
 
-    async function closeOrder(orderId, token) {                     // 結單
+    async function closeOrder(orderId, token, asAdmin = false) {    // 結單；asAdmin 為 true 時用管理者密碼
       if (!confirm("結單後就不能再點了。確定要結單嗎？")) return;          // 先確認，按取消就不做
       try {                                                         // 嘗試結單
         await api(`/orders/${orderId}/close`, {                     // 呼叫 POST /orders/{order_id}/close
           method: "POST",                                           // 方法是 POST
-          headers: { "X-Manage-Token": token },                     // 自動帶上開單時拿到的管理碼，不用打密碼
+          headers: asAdmin ? { "X-Admin-Token": token } : { "X-Manage-Token": token },  // 管理者帶管理者密碼；開單的人自動帶管理碼
         });                                                         // 呼叫結束
         showToast("已結單");                                          // 提示成功
         await renderOrder(orderId);                                 // 重新載入，畫面會變成已結單
