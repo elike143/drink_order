@@ -14,6 +14,7 @@ class Order(Base):                                         # 定義下訂類別
     shop_name: Mapped[str] = mapped_column(String(50))  # 文字欄位
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())  # 開單時間：由資料庫在新增時自動填入
     is_open: Mapped[bool] = mapped_column(default=True) #判斷是否收單
+    manage_token: Mapped[str | None] = mapped_column(String(64))   # 開單管理碼：只有開單的人知道，結單、刪單時要帶上；舊訂單沒有，所以可以是空的
     cups: Mapped[list["Cup"]] = relationship()    # 關聯：這張訂單底下的所有杯，SQLAlchemy 會透過外鍵 order_id 自動找出來
 
 class Cup(Base):                                                  # 定義一杯類別，對應資料庫裡的一張表
@@ -28,6 +29,7 @@ class Cup(Base):                                                  # 定義一杯
     add: Mapped[str | None] = mapped_column(String(100))                           # 備註：文字，選填，例如「茶味重」
     toppings: Mapped[list[str]] = mapped_column(ARRAY(String(10)), default=list)   # 加料：直接存成清單，沒加料就是空清單
     price: Mapped[int]                                            # 單杯價格：整數，必填
+    delete_token: Mapped[str | None] = mapped_column(String(64))   # 刪除碼：只有點這杯的人知道，刪除時要帶上；舊資料沒有，所以可以是空的
 
 class MenuItem(Base):                                             # 菜單品項，一筆是一種飲料
     __tablename__ = "menu_items"                                  # 資料庫裡的表名
