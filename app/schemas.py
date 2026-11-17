@@ -11,11 +11,14 @@ class OrderOut(OrderCreate):                       # 繼承 OrderCreate 的所�
     is_open: bool                              # 加上是否收單
     model_config = ConfigDict(from_attributes=True)   # 允許從資料庫的物件取值    
 
+class OrderCreated(OrderOut):                     # 只有「開單成功」的回應用這個格式
+    manage_token: str                             # 把管理碼交給開單的人；其他 API 用 OrderOut，看不到這個欄位    
+
 class CupCreate(BaseModel):                                  # 同學新增一杯時送來的資料格式
     who_order: str = Field(min_length=1, max_length=10)      # 誰點的：必填，至少 1 個字（不能空白）、最多 10 字      
     drink_name: str = Field(min_length=1, max_length=100)    # 飲料名：至少 1 個字（不能空白）、最多 100 字
     ice: Literal["正常冰", "少冰", "去冰", "熱飲"]           # 冰塊：只能是這四個值之一，送其他值會被拒絕
-    sugar: Literal["正常", "9分", "少糖", "半糖", "微糖", "無糖"]   # 糖分：只能是這五個值之一，送其他值會被拒絕
+    sugar: Literal["正常", "9分", "少糖", "半糖", "微糖", "無糖"]   # 糖分：只能是這六個值之一，送其他值會被拒絕
     size: Literal["M", "L"]                     # 尺寸：只能是這兩個值之一，送其他值會被拒絕
     add: str | None = Field(default=None, max_length=100)    # 備註：選填，沒送就是 None；有送最多 100 字
     price: int = Field(ge=1, le=200)                         # 價格：整數，必須 >=1 且 <= 200（le = 小於等於）
@@ -25,6 +28,9 @@ class CupOut(CupCreate):                                     # API 回傳時，�
     id: int                                                  # 編號：整數，必填
     model_config = ConfigDict(from_attributes=True)          # 允許用.去物件取值
     order_id: int                                              # 這杯屬於哪張訂單
+
+class CupCreated(CupOut):                         # 只有「點單成功」的回應用這個格式
+    delete_token: str                             # 把刪除碼交給點單的人；其他 API 用 CupOut，看不到這個欄位    
     
 
 class MenuItemOut(BaseModel):                                     # API 回傳菜單品項的格式

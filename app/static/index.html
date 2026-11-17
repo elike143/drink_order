@@ -156,7 +156,10 @@
     .cups { list-style: none; margin: 4px 0 0; padding: 0; }        /* 這個人點的每一杯 */
     .cups li { display: flex; justify-content: space-between; gap: 12px; color: var(--ink-soft); font-size: 14px; }  /* 飲料內容在左、價格在右 */
     .num { font-variant-numeric: tabular-nums; white-space: nowrap; }  /* 價格數字等寬、不換行 */
-    .actions { margin-top: 28px; display: flex; gap: 8px; flex-wrap: wrap; }  /* 底部按鈕區 */
+    .actions { margin-top: 28px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }  /* 底部按鈕區 */
+    .actions .hint { margin: 0; color: #fff; font-size: 14px; text-shadow: 1px 1px 0 var(--ink); }  /* 不是開單的人時，顯示「只有開單的人可以結單」 */
+    .cup-right { display: flex; align-items: center; gap: 8px; }  /* 價格和刪除按鈕並排在右邊 */
+    .del-cup { font: inherit; font-size: 12px; padding: 1px 8px; border: 2px solid var(--ink); border-radius: 999px; background: var(--gum); color: var(--ink); cursor: pointer; }  /* 刪除自己那杯的小按鈕 */
 
     .menu-board { padding: 16px 18px; --r: 24px; }                  /* 菜單看板：奶油底的手繪卡片 */
     .menu-board summary { cursor: pointer; font-size: 20px; }       /* 菜單標題，點了可以收合 */
@@ -306,6 +309,22 @@
       try { localStorage.setItem(NAME_KEY, name); } catch { }       // 不允許儲存就算了，不影響點單
     }                                                               // saveName 結束
 
+    const orderKey = (orderId) => `drink_order_manage_${orderId}`;  // 存「開單管理碼」用的鑰匙，每張單一個
+    const cupKey = (cupId) => `drink_order_cup_${cupId}`;           // 存「刪除這杯的碼」用的鑰匙，每杯一個
+
+    function readToken(key) {                                       // 讀出這個瀏覽器存的管理碼
+      try { return localStorage.getItem(key); }                     // 有就回傳
+      catch { return null; }                                        // 不允許儲存時當作沒有
+    }                                                               // readToken 結束
+
+    function saveToken(key, token) {                                // 把後端給的管理碼存在這個瀏覽器
+      try { if (token) localStorage.setItem(key, token); } catch { }  // 不允許儲存就算了，只是之後不能管理
+    }                                                               // saveToken 結束
+
+    function removeToken(key) {                                     // 用完就刪掉，例如那杯已經刪除
+      try { localStorage.removeItem(key); } catch { }               // 失敗也不影響
+    }                                                               // removeToken 結束
+
     function errorMessage(status, data) {                           // 把後端回傳的錯誤整理成看得懂的一句話
       const detail = data && data.detail;                           // FastAPI 的錯誤內容都放在 detail
       if (typeof detail === "string") return detail;                // 你自己寫的 HTTPException，例如「找不到這張訂單」
@@ -372,6 +391,7 @@
             method: "POST",                                         // 方法是 POST
             body: JSON.stringify({ shop_name: form.shop_name.value.trim() }),  // 送出店名，去掉前後空白
           });                                                       // 呼叫結束
+          saveToken(orderKey(order.id), order.manage_token);        // 記住這張單的管理碼，只有這個瀏覽器能結單、刪單
           showToast(`已開單：${order.shop_name}`);                     // 提示成功
           location.hash = `#/orders/${order.id}`;                   // 直接進到這張新訂單
         } catch (error) {                                           // 失敗時
@@ -441,7 +461,7 @@
       }                                                             // 每種加料結束
     }                                                               // buildToppingChips 結束
 
-    function renderPeople(root, cups) {                             // 依人分組顯示明細
+    function renderPeople(root, cups, orderId, isOpen) {            // 依人分組顯示明細；收單中時，自己點的那杯旁邊會有刪除按鈕
       const groups = new Map();                                     // 名字對應到這個人點的所有杯
       for (const cup of cups) {                                     // 每一杯做一次
         if (!groups.has(cup.who_order)) groups.set(cup.who_order, []);  // 第一次出現的人先建一個空清單
@@ -470,7 +490,19 @@
           const price = document.createElement("span");             // 價格
           price.className = "num";                                  // 數字等寬
           price.textContent = `${cup.price} 元`;                     // 放入價格
-          line.append(desc, price);                                 // 內容和價格放進同一行
+          const right = document.createElement("span");             // 右邊：價格和刪除按鈕
+          right.className = "cup-right";                            // 套用並排樣式
+          right.append(price);                                      // 先放價格
+          const token = readToken(cupKey(cup.id));                  // 這個瀏覽器有沒有這杯的刪除碼，也就是「是不是我點的」
+          if (isOpen && token) {                                    // 還在收單，而且是我點的
+            const del = document.createElement("button");           // 建立刪除按鈕
+            del.type = "button";                                    // 一般按鈕，不會送出表單
+            del.className = "del-cup";                              // 套用小按鈕樣式
+            del.textContent = "刪除";                                 // 按鈕文字
+            del.addEventListener("click", () => deleteCup(orderId, cup, token));  // 按下時刪除這杯
+            right.append(del);                                      // 放在價格旁邊
+          }                                                         // 刪除按鈕結束
+          line.append(desc, right);                                 // 內容和右邊放進同一行
           cupList.append(line);                                     // 這一行放進清單
         }                                                           // 每一杯結束
         person.append(head, cupList);                               // 名字行和每一杯放進這個人的區塊
@@ -620,7 +652,7 @@
         `${order.id} 號單，${formatTime(order.created_at)} 開單，${order.is_open ? "收單中" : "已結單"}`;  // 組成一句
       const total = cups.reduce((sum, cup) => sum + cup.price, 0);  // 加總所有杯的價格
       page.querySelector(".amount").textContent = total.toLocaleString("zh-TW");  // 顯示總金額，有千分位
-      const peopleCount = renderPeople(page, cups);                 // 畫出明細，順便拿到人數
+      const peopleCount = renderPeople(page, cups, orderId, order.is_open);  // 畫出明細，順便拿到人數
       page.querySelector(".count").textContent = `${cups.length} 杯，${peopleCount} 人`;  // 顯示杯數和人數
 
       const form = page.querySelector("#form-cup");                 // 點單表單
@@ -629,12 +661,11 @@
         buildToppingChips(page.querySelector(".topping-chips"), order.shop_name);  // 產生這家店的加料勾選框
         form.who_order.value = readSavedName();                     // 帶入上次填過的名字
         form.addEventListener("submit", (event) => submitCup(event, orderId, form));  // 按下送出時呼叫 submitCup
-        page.querySelector("#close-order").addEventListener("click", () => closeOrder(orderId));  // 按下結單時呼叫 closeOrder
       } else {                                                      // 已經結單
         form.remove();                                              // 拿掉點單紙
         page.querySelector(".closed-note").hidden = false;          // 顯示已結單提示
-        page.querySelector(".actions").remove();                    // 拿掉結單按鈕
       }                                                             // 狀態判斷結束
+      setupActions(page, order, cups.length);                       // 依「是不是開單的人」決定底部要有哪些按鈕
       page.querySelector("#copy-link").addEventListener("click", copyLink);  // 複製連結按鈕
       if (menu && menu.length) setupMenu(page, order.is_open ? form : null, menu, order.shop_name);  // 有菜單就畫出菜單看板，收單中還要把飲料改成選單；店名給試算價格用
       document.querySelector(".page").classList.toggle("wide", Boolean(menu && menu.length));  // 有菜單時整頁放寬，放得下右邊的菜單
@@ -658,10 +689,11 @@
         price: Number(data.get("price")),                           // 價格轉成數字
       };                                                            // JSON 結束
       try {                                                         // 嘗試送出
-        await api(`/orders/${orderId}/cups`, {                      // 呼叫 POST /orders/{order_id}/cups
+        const cup = await api(`/orders/${orderId}/cups`, {          // 呼叫 POST /orders/{order_id}/cups，拿回存好的這杯
           method: "POST",                                           // 方法是 POST
           body: JSON.stringify(payload),                            // 把資料轉成 JSON 文字
         });                                                         // 呼叫結束
+        saveToken(cupKey(cup.id), cup.delete_token);                // 記住這杯的刪除碼，之後只有這個瀏覽器能刪
         saveName(payload.who_order);                                // 記住名字
         showToast(`已送出：${payload.drink_name}`);                    // 提示成功
         await renderOrder(orderId);                                 // 重新載入，明細和總金額會更新
@@ -671,14 +703,42 @@
       }                                                             // 送出結束
     }                                                               // submitCup 結束
 
-    async function closeOrder(orderId) {                            // 結單
+    function setupActions(page, order, cupCount) {                  // 底部按鈕：只有開單的人看得到結單、刪單
+      const actions = page.querySelector(".actions");               // 底部按鈕區
+      const closeButton = page.querySelector("#close-order");       // 結單按鈕
+      const token = readToken(orderKey(order.id));                  // 這個瀏覽器有沒有這張單的管理碼，也就是「是不是開單的人」
+      if (!token) {                                                 // 不是開單的人
+        closeButton.remove();                                       // 拿掉結單按鈕
+        if (order.is_open) {                                        // 還在收單時，說明一下為什麼沒有結單按鈕
+          const hint = document.createElement("p");                 // 建立說明文字
+          hint.className = "hint";                                  // 套用樣式
+          hint.textContent = "只有開單的人可以結單。";                   // 說明
+          actions.append(hint);                                     // 放進底部
+        } else {                                                    // 已結單，底部不需要任何東西
+          actions.remove();                                         // 整個拿掉
+        }                                                           // 說明結束
+        return;                                                     // 不是開單的人，到這裡就結束
+      }                                                             // 非開單者處理結束
+      if (order.is_open) {                                          // 開單的人，而且還在收單
+        closeButton.addEventListener("click", () => closeOrder(order.id, token));  // 按下結單時，帶著管理碼結單
+      } else {                                                      // 已經結單
+        closeButton.remove();                                       // 不需要結單按鈕了
+      }                                                             // 結單按鈕結束
+      const del = document.createElement("button");                 // 建立刪單按鈕：開單的人隨時都能刪
+      del.type = "button";                                          // 一般按鈕
+      del.className = "btn wob";                                    // 一般按鈕樣式
+      del.textContent = "刪除這張單";                                  // 按鈕文字
+      del.addEventListener("click", () => deleteOrder(order.id, token, cupCount));  // 按下時刪除，帶上杯數給確認視窗用
+      actions.append(del);                                          // 放進底部
+      if (!actions.children.length) actions.remove();               // 什麼按鈕都沒有就整個拿掉
+    }                                                               // setupActions 結束
+
+    async function closeOrder(orderId, token) {                     // 結單
       if (!confirm("結單後就不能再點了。確定要結單嗎？")) return;          // 先確認，按取消就不做
-      const token = prompt("請輸入結單密碼");                          // 結單要密碼，避免拿到連結的人都能結單
-      if (!token) return;                                           // 沒輸入或按取消就不做
       try {                                                         // 嘗試結單
         await api(`/orders/${orderId}/close`, {                     // 呼叫 POST /orders/{order_id}/close
           method: "POST",                                           // 方法是 POST
-          headers: { "X-Admin-Token": token },                      // 把密碼放在請求的 header 裡送給後端
+          headers: { "X-Manage-Token": token },                     // 自動帶上開單時拿到的管理碼，不用打密碼
         });                                                         // 呼叫結束
         showToast("已結單");                                          // 提示成功
         await renderOrder(orderId);                                 // 重新載入，畫面會變成已結單
@@ -686,6 +746,39 @@
         showToast(error.message, true);                             // 顯示錯誤
       }                                                             // 結單結束
     }                                                               // closeOrder 結束
+
+    async function deleteCup(orderId, cup, token) {                 // 刪除自己點的一杯
+      if (!confirm(`要刪除「${cup.drink_name}」嗎？`)) return;          // 先確認
+      try {                                                         // 嘗試刪除
+        await api(`/orders/${orderId}/cups/${cup.id}`, {            // 呼叫 DELETE /orders/{order_id}/cups/{cup_id}
+          method: "DELETE",                                         // 方法是 DELETE
+          headers: { "X-Delete-Token": token },                     // 帶上點這杯時拿到的刪除碼
+        });                                                         // 呼叫結束
+        removeToken(cupKey(cup.id));                                // 這杯已經沒了，刪除碼也不用留
+        showToast(`已刪除：${cup.drink_name}`);                        // 提示成功
+        await renderOrder(orderId);                                 // 重新載入，明細和總金額會更新
+      } catch (error) {                                             // 失敗時
+        showToast(error.message, true);                             // 顯示錯誤
+      }                                                             // 刪除結束
+    }                                                               // deleteCup 結束
+
+    async function deleteOrder(orderId, token, cupCount) {          // 刪除整張單，裡面點的飲料會一起刪掉
+      const warning = cupCount > 0                                  // 已經有人點了，提醒會連別人的一起刪
+        ? `這張單已經有 ${cupCount} 杯，刪除後所有人點的飲料都會一起消失，而且救不回來。確定要刪除嗎？`  // 有人點時的警告
+        : "要刪除這張單嗎？";                                          // 還沒人點時的確認
+      if (!confirm(warning)) return;                                // 按取消就不做
+      try {                                                         // 嘗試刪除
+        await api(`/orders/${orderId}`, {                           // 呼叫 DELETE /orders/{order_id}
+          method: "DELETE",                                         // 方法是 DELETE
+          headers: { "X-Manage-Token": token },                     // 帶上開單時拿到的管理碼
+        });                                                         // 呼叫結束
+        removeToken(orderKey(orderId));                             // 這張單已經沒了，管理碼也不用留
+        showToast("已刪除這張單");                                      // 提示成功
+        location.hash = "#/";                                       // 回首頁
+      } catch (error) {                                             // 失敗時
+        showToast(error.message, true);                             // 顯示錯誤
+      }                                                             // 刪除結束
+    }                                                               // deleteOrder 結束
 
     async function copyLink() {                                     // 複製目前這張單的網址
       try {                                                         // 嘗試複製

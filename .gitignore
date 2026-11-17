@@ -270,3 +270,6 @@ Thumbs.db
 
 # 忽略本機掛載的資料庫資料夾（資料庫的實際檔案不該進版本控制）
 pgdata/
+
+# Claude 產生的檔案，複製到正確位置後才算進專案
+Claude outputs/

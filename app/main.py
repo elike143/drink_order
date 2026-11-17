@@ -2,19 +2,22 @@ from fastapi import FastAPI,Depends,Query    # 匯入 FastAPI 來建立 API，�
 from sqlalchemy import select          #匯入 select 來查詢資料庫
 from sqlalchemy.orm import Session     #匯入 Session 來取得資料庫連線
 from app.database import get_db ,engine , SessionLocal       #匯入 get_db 來取得資料庫連線，匯入 engine 來建立資料庫表格
-from app.schemas import CupOut, CupCreate, OrderCreate, OrderOut, MenuItemOut   #匯入 schemas 來定義資料格式       
+from app.schemas import CupOut, CupCreate, OrderCreate, OrderOut, MenuItemOut,OrderCreated,CupCreated   #匯入 schemas 來定義資料格式       
 from app.models import Base,Cup,Order,MenuItem   #匯入 models 來定義資料表      
 from fastapi.exceptions import HTTPException #匯入 HTTPException 來回傳錯誤訊息
 from fastapi.staticfiles import StaticFiles
 from app.menus.menu_data import seed_menu, cup_price   # 匯入建立菜單、計算一杯總價的函式
 from typing import Literal                            # 匯入 Literal，限制查詢參數只能是幾個固定值
 
-## 新增結單密碼
-from fastapi import Header                        #匯入Header
-import os                                         # 讀環境變數
-import secrets                                    # 安全地比對密碼
+## 管理碼、刪除碼
+from fastapi import Header, Response              # Header：從請求的 header 拿值；Response：回傳沒有內容的 204
+import secrets                                    # 產生隨機的管理碼，以及安全地比對
 from fastapi.responses import FileResponse        # 回傳一個檔案，給首頁用
-ADMIN_TOKEN = os.environ["ADMIN_TOKEN"]  
+import os                                         # 讀環境變數
+
+ADMIN_TOKEN = os.environ["ADMIN_TOKEN"]           # 網站管理者的萬用鑰匙：可以結任何一張單
+def token_ok(given: str | None, expected: str | None) -> bool:   # 檢查送來的碼對不對
+    return bool(given and expected and secrets.compare_digest(given, expected))   # 兩個都要有值，而且一模一樣才算對
 
 Base.metadata.create_all(bind=engine)                #建立資料庫表格
 app = FastAPI(title = "Drink Order API")             #做一個名字叫Drink Order API的API存進app裡
@@ -31,14 +34,6 @@ with SessionLocal() as db:
 def list_orders(db: Session = Depends(get_db)):       # 店員:拿到資料庫鑰匙 db
     return db.scalars(select(Order)).all()            # 傳回所有訂單，scalars() 會把每一筆資料庫物件轉成 OrderOut，all() 會把所有資料庫物件放進 list 裡  
 
-@app.post("/orders", response_model=OrderOut, status_code=201) # 公告:新增一筆全班的空白訂單，找下面的店員；成功回傳 201
-def create_order(data: OrderCreate, db: Session = Depends(get_db)):# 店員:拿到客人的點單 OrderCreate，和資料庫鑰匙 db
-    order = Order(**data.model_dump())                              # 把點單 data 轉成一筆可以存進資料庫的 Order
-    db.add(order)                                                    # 放進暫存區
-    db.commit()                                                     # 正式存進資料庫
-    db.refresh(order)                                                # 去資料庫拿回最新的樣子，這時才有 id
-    return order                                                     # 把存好的這筆訂單回傳給客人
-
 @app.get("/orders/{order_id}/cups", response_model=list[CupOut])  # 公告：有人要看某張訂單的所有飲料，找下面的店員
 def list_cups_in_order(order_id: int, db: Session = Depends(get_db)):  # 店員：拿到客人的點單 order_id，和資料庫鑰匙 db
     order = db.get(Order, order_id)                 # 先去資料庫找這張訂單
@@ -46,7 +41,7 @@ def list_cups_in_order(order_id: int, db: Session = Depends(get_db)):  # 店員�
         raise HTTPException(status_code=404, detail="找不到這張訂單")  # 回傳 404 給客人
     return order.cups                               # 回傳這張訂單的所有飲料
 
-@app.post("/orders/{order_id}/cups", response_model=CupOut, status_code=201)   # 公告：有人要新增一杯飲料，找下面的店員；成功回傳 201
+@app.post("/orders/{order_id}/cups", response_model=CupCreated, status_code=201)   # 公告：有人要新增一杯飲料，找下面的店員；成功回傳 201
 def create_cup(order_id: int, data: CupCreate, db: Session = Depends(get_db)):   # 店員：拿到客人的點單 data，和資料庫鑰匙 db   
     order = db.get(Order, order_id)                 # 先去資料庫找這張訂單
     if not order:                                   # 如果找不到
@@ -64,23 +59,26 @@ def create_cup(order_id: int, data: CupCreate, db: Session = Depends(get_db)):  
         price = cup_price(item, data.size, data.toppings)             # 飲料價格加上加料，規則都在 cup_price 裡
     except ValueError as e:                                           # 例如只有 M 杯卻點 L、得正點波霸
         raise HTTPException(status_code=400, detail=str(e))           # 照規則拒絕，回 400 和原因
-    cup = Cup(**data.model_dump(exclude={"price"}), price=price, order_id=order_id)   # 客人的單整包交給 Cup，只拿掉價格改用後端算的；加料清單直接存
+    cup = Cup(**data.model_dump(exclude={"price"}), price=price, order_id=order_id, delete_token=secrets.token_urlsafe(24))   # 多存一串隨機的刪除碼
     db.add(cup)                                    # 放進暫存區
     db.commit()                                    # 正式存進資料庫
     db.refresh(cup)                                # 去資料庫拿回最新的樣子，這時才有 id
     return cup                                     # 把存好的這杯回傳給客人
 
-@app.post("/orders/{order_id}/close", response_model=OrderOut)   # 公告：有人要關閉訂單
+@app.post("/orders/{order_id}/close", response_model=OrderOut)   # 結單：開單的人或網站管理者都可以
 def close_order(
     order_id: int,                                               # 網址裡的訂單編號
-    x_admin_token: str | None = Header(default=None),            # 從 header 的 X-Admin-Token 拿密碼，沒帶就是 None
+    x_manage_token: str | None = Header(default=None),           # 開單的人：瀏覽器自動帶的管理碼
+    x_admin_token: str | None = Header(default=None),            # 網站管理者：萬用鑰匙
     db: Session = Depends(get_db),                               # 資料庫鑰匙
 ):
-    if x_admin_token is None or not secrets.compare_digest(x_admin_token, ADMIN_TOKEN):   # 沒帶密碼，或密碼不對
-        raise HTTPException(status_code=403, detail="結單密碼錯誤")   # 回 403：你沒有權限做這件事
-    order = db.get(Order, order_id)                              # 去資料庫找這張訂單
+    order = db.get(Order, order_id)                              # 先找這張訂單
     if not order:                                                # 找不到
         raise HTTPException(status_code=404, detail="找不到這張訂單")   # 回 404
+    is_owner = token_ok(x_manage_token, order.manage_token)      # 是不是開單的人
+    is_admin = token_ok(x_admin_token, ADMIN_TOKEN)              # 是不是網站管理者
+    if not (is_owner or is_admin):                               # 兩個都不是
+        raise HTTPException(status_code=403, detail="只有開單的人可以結單")   # 回 403
     order.is_open = False                                        # 把訂單關閉
     db.commit()                                                  # 存進資料庫
     db.refresh(order)                                            # 拿回最新的樣子
@@ -117,3 +115,47 @@ def get_price(                                                            # 店�
     except ValueError as e:                                               # 例如只有 M 杯卻點 L、得正點波霸
         raise HTTPException(status_code=400, detail=str(e))               # 回 400 和原因，不再變成 500
     return {"price": price}     
+
+@app.post("/orders", response_model=OrderCreated, status_code=201)    # 開單成功的回應會多一個管理碼
+def create_order(data: OrderCreate, db: Session = Depends(get_db)):   # 拿到客人的點單和資料庫鑰匙
+    order = Order(**data.model_dump(), manage_token=secrets.token_urlsafe(24))   # 建立訂單，同時產生一串隨機的管理碼
+    db.add(order)                                                     # 放進暫存區
+    db.commit()                                                       # 存進資料庫
+    db.refresh(order)                                                 # 拿回最新的樣子，這時才有 id
+    return order                                                      # 回傳訂單和管理碼
+
+@app.delete("/orders/{order_id}", status_code=204)               # 刪除整張訂單，裡面的飲料一起刪
+def delete_order(
+    order_id: int,                                               # 網址裡的訂單編號
+    x_manage_token: str | None = Header(default=None),           # 從 header 的 X-Manage-Token 拿管理碼
+    db: Session = Depends(get_db),                               # 資料庫鑰匙
+):
+    order = db.get(Order, order_id)                              # 找這張訂單
+    if not order:                                                # 找不到
+        raise HTTPException(status_code=404, detail="找不到這張訂單")   # 回 404
+    if not order.manage_token or not x_manage_token or not secrets.compare_digest(x_manage_token, order.manage_token):   # 沒有管理碼或不對
+        raise HTTPException(status_code=403, detail="只有開單的人可以刪單")   # 回 403
+    for cup in order.cups:                                       # 這張單裡的每一杯
+        db.delete(cup)                                           # 先標記刪除
+    db.delete(order)                                             # 再標記刪除訂單本身
+    db.commit()                                                  # 一次真正刪掉
+    return Response(status_code=204)                             # 回 204
+
+@app.delete("/orders/{order_id}/cups/{cup_id}", status_code=204)   # 刪除一杯；成功回 204：成功，但沒有內容要回傳
+def delete_cup(
+    order_id: int,                                               # 網址裡的訂單編號
+    cup_id: int,                                                 # 網址裡的飲料編號
+    x_delete_token: str | None = Header(default=None),           # 從 header 的 X-Delete-Token 拿刪除碼
+    db: Session = Depends(get_db),                               # 資料庫鑰匙
+):
+    cup = db.get(Cup, cup_id)                                    # 用主鍵找這杯
+    if not cup or cup.order_id != order_id:                      # 找不到，或這杯不屬於網址上的訂單
+        raise HTTPException(status_code=404, detail="找不到這杯飲料")   # 回 404
+    order = db.get(Order, order_id)                              # 找這杯所屬的訂單
+    if not order.is_open:                                        # 已經結單
+        raise HTTPException(status_code=400, detail="已經結單，不能刪除")   # 回 400
+    if not cup.delete_token or not x_delete_token or not secrets.compare_digest(x_delete_token, cup.delete_token):   # 沒有刪除碼或不對
+        raise HTTPException(status_code=403, detail="只能刪除自己點的飲料")   # 回 403
+    db.delete(cup)                                               # 從暫存區標記刪除
+    db.commit()                                                  # 真正從資料庫刪掉
+    return Response(status_code=204)  
