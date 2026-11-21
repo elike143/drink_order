@@ -64,7 +64,7 @@ def create_cup(order_id: int, data: CupCreate, db: Session = Depends(get_db)):  
         price = cup_price(item, data.size, data.toppings)             # 飲料價格加上加料，規則都在 cup_price 裡
     except ValueError as e:                                           # 例如只有 M 杯卻點 L、得正點波霸
         raise HTTPException(status_code=400, detail=str(e))           # 照規則拒絕，回 400 和原因
-    cup = Cup(**data.model_dump(exclude={"price"}), price=price, order_id=order_id)   # 客人的單整包交給 Cup，只拿掉價格改用後端算的；加料清單直接存
+    cup = Cup(**data.model_dump(), price=price, order_id=order_id)   # 客人的單整包交給 Cup，價格用後端算的；加料清單直接存
     db.add(cup)                                    # 放進暫存區
     db.commit()                                    # 正式存進資料庫
     db.refresh(cup)                                # 去資料庫拿回最新的樣子，這時才有 id

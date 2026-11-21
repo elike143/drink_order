@@ -655,7 +655,6 @@
         ice: data.get("ice"),                                       // 冰塊
         toppings: data.getAll("topping"),                           // 勾起來的加料，例如 ["珍珠", "布丁"]；都沒勾就是 []
         add: data.get("add").trim() || null,                        // 備註，例如「茶味重」；沒寫就送 null
-        price: Number(data.get("price")),                           // 價格轉成數字
       };                                                            // JSON 結束
       try {                                                         // 嘗試送出
         await api(`/orders/${orderId}/cups`, {                      // 呼叫 POST /orders/{order_id}/cups
