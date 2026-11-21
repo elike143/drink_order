@@ -4,6 +4,9 @@
 
 這是我轉職後端工程師培訓的結訓專題，重點放在 **API 設計、資料庫設計，以及「價格只信任後端」的計價規則**。
 
+<img width="1820" height="827" alt="image" src="https://github.com/user-attachments/assets/e40fdea2-6ea8-4674-9a9d-1741de111f16" />
+
+
 **線上版**：https://drink-order-8h9v.onrender.com/ （用手機也能直接點）
 
 > 線上版使用 Render 免費方案，閒置 15 分鐘會休眠，休眠後第一次開啟要等大約 1 分鐘。
