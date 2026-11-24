@@ -273,3 +273,6 @@ pgdata/
 
 # Claude 產生的檔案，複製到正確位置後才算進專案
 Claude outputs/
+
+# Claude Code 的專案說明檔，只給自己的 Claude 用，不上傳
+/CLAUDE.md
