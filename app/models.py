@@ -1,42 +1,65 @@
-from sqlalchemy import String, DateTime  # 匯入 String、DateTime 來設定文字最大長度、時間欄位
-from sqlalchemy import func ,ForeignKey #匯入 func,ForeignKey 來使用 SQL 的函式和外鍵
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column # 匯入 ORM 的基底類別與定義欄位的工具
-from sqlalchemy.orm import relationship #匯入 relationship 來建立關聯
-from datetime import datetime #匯入datetime來處理時間
-from sqlalchemy.dialects.postgresql import ARRAY   # 匯入 PostgreSQL 的陣列型別，讓一格可以存一個清單
+# 匯入定義資料表需要的工具
+# - String、DateTime：設定文字最大長度、時間欄位
+# - func、ForeignKey：使用 SQL 的函式（例如 now()）、設定外鍵
+# - DeclarativeBase、Mapped、mapped_column：ORM 的基底類別與定義欄位的工具
+# - relationship：建立資料表之間的關聯
+# - datetime：處理時間
+# - ARRAY：PostgreSQL 的陣列型別，讓一格可以存一個清單
+from datetime import datetime
+from sqlalchemy import String, DateTime, func, ForeignKey
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.dialects.postgresql import ARRAY
 
-class Base(DeclarativeBase):                                      # 所有資料表的共同父類別
-    pass                                                          # 不需要額外內容
+# 所有資料表的共同父類別，不需要額外內容
+class Base(DeclarativeBase):
+    pass
 
-class Order(Base):                                         # 定義下訂類別
-    __tablename__ = "orders"                               # 表名
-    id: Mapped[int] = mapped_column(primary_key=True)    # 主鍵
-    shop_name: Mapped[str] = mapped_column(String(50))  # 文字欄位
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())  # 開單時間：由資料庫在新增時自動填入
-    is_open: Mapped[bool] = mapped_column(default=True) #判斷是否收單
-    manage_token: Mapped[str | None] = mapped_column(String(64))   # 開單管理碼：只有開單的人知道，結單、刪單時要帶上；舊訂單沒有，所以可以是空的
-    cups: Mapped[list["Cup"]] = relationship()    # 關聯：這張訂單底下的所有杯，SQLAlchemy 會透過外鍵 order_id 自動找出來
+# 訂單資料表 orders
+# - id：主鍵，資料庫自動產生
+# - shop_name：店家名稱
+# - created_at：開單時間，由資料庫在新增時自動填入
+# - is_open：是否還在收單，預設是 True
+# - cups：這張訂單底下的所有杯，SQLAlchemy 會透過外鍵 order_id 自動找出來
+class Order(Base):
+    __tablename__ = "orders"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    shop_name: Mapped[str] = mapped_column(String(50))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    is_open: Mapped[bool] = mapped_column(default=True)
+    cups: Mapped[list["Cup"]] = relationship()
 
-class Cup(Base):                                                  # 定義一杯類別，對應資料庫裡的一張表
-    __tablename__ = "cups"                                        # 資料庫裡實際的表名稱
-    id: Mapped[int] = mapped_column(primary_key=True)             # 編號：主鍵，資料庫自動產生 1、2、3……
-    order_id: Mapped[int] = mapped_column(ForeignKey("orders.id"))   # 外鍵：這杯屬於哪張訂單，值必須是 orders 表裡存在的 id
-    who_order: Mapped[str] = mapped_column(String(100))           # 誰點的：文字，必填          
-    drink_name: Mapped[str] = mapped_column(String(100))          # 飲料名稱：文字，必填
-    ice: Mapped[str] = mapped_column(String(100))                 # 冰塊：文字，必填
-    sugar: Mapped[str] = mapped_column(String(100))               # 糖分：文字，必填
-    size: Mapped[str] = mapped_column(String(100))                # 尺寸：文字，必填
-    add: Mapped[str | None] = mapped_column(String(100))                           # 備註：文字，選填，例如「茶味重」
-    toppings: Mapped[list[str]] = mapped_column(ARRAY(String(10)), default=list)   # 加料：直接存成清單，沒加料就是空清單
-    price: Mapped[int]                                            # 單杯價格：整數，必填
-    delete_token: Mapped[str | None] = mapped_column(String(64))   # 刪除碼：只有點這杯的人知道，刪除時要帶上；舊資料沒有，所以可以是空的
+# 每一杯飲料的資料表 cups
+# - id：主鍵，資料庫自動產生 1、2、3……
+# - order_id：外鍵，這杯屬於哪張訂單，值必須是 orders 表裡存在的 id
+# - who_order、drink_name、ice、sugar、size：誰點的、飲料名稱、冰塊、糖分、尺寸，都是必填文字
+# - add：備註，選填，例如「茶味重」
+# - toppings：加料，直接存成清單，沒加料就是空清單
+# - price：單杯價格，由後端計算，必填
+class Cup(Base):
+    __tablename__ = "cups"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    order_id: Mapped[int] = mapped_column(ForeignKey("orders.id"))
+    who_order: Mapped[str] = mapped_column(String(100))
+    drink_name: Mapped[str] = mapped_column(String(100))
+    ice: Mapped[str] = mapped_column(String(100))
+    sugar: Mapped[str] = mapped_column(String(100))
+    size: Mapped[str] = mapped_column(String(100))
+    add: Mapped[str | None] = mapped_column(String(100))
+    toppings: Mapped[list[str]] = mapped_column(ARRAY(String(10)), default=list)
+    price: Mapped[int]
 
-class MenuItem(Base):                                             # 菜單品項，一筆是一種飲料
-    __tablename__ = "menu_items"                                  # 資料庫裡的表名
-    id: Mapped[int] = mapped_column(primary_key=True)             # 編號：主鍵
-    shop: Mapped[str] = mapped_column(String(50), index=True)     # 哪一家店；加索引，用店名查比較快
-    category: Mapped[str] = mapped_column(String(20))             # 菜單分類，例如「找好茶」
-    name: Mapped[str] = mapped_column(String(50))                 # 品名
-    price_m: Mapped[int]                                          # M 杯價格
-    price_l: Mapped[int|None]                                          # L 杯價格
-    hot_ok: Mapped[bool] = mapped_column(default=True)            # 可不可以做熱飲；菜單標 ◆ 的是 False
+# 菜單品項資料表 menu_items，一筆是一種飲料
+# - shop：哪一家店，加索引讓用店名查比較快
+# - category：菜單分類，例如「找好茶」
+# - name：品名
+# - price_m、price_l：M 杯、L 杯價格；L 是 None 代表只有 M 杯
+# - hot_ok：可不可以做熱飲，菜單標 ◆ 的是 False
+class MenuItem(Base):
+    __tablename__ = "menu_items"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    shop: Mapped[str] = mapped_column(String(50), index=True)
+    category: Mapped[str] = mapped_column(String(20))
+    name: Mapped[str] = mapped_column(String(50))
+    price_m: Mapped[int]
+    price_l: Mapped[int | None]
+    hot_ok: Mapped[bool] = mapped_column(default=True)

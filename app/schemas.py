@@ -1,44 +1,58 @@
-from typing import Literal                                # 匯入 Literal，用來限制「只能是這幾個值」
-from pydantic import BaseModel, Field, ConfigDict         # 匯入 Pydantic 的 BaseModel（資料格式的父類別）  、 Field（設定檢查條件）、 ConfigDict（設定模型行為）
-from datetime import datetime                             # 匯入 datetime，用來處理時間
+# 匯入定義資料格式需要的工具
+# - Literal：限制「只能是這幾個值」
+# - BaseModel：Pydantic 資料格式的父類別；Field：設定檢查條件；ConfigDict：設定模型行為
+# - datetime：處理時間
+from typing import Literal
+from datetime import datetime
+from pydantic import BaseModel, Field, ConfigDict
 
-class OrderCreate(BaseModel):                                # 新增訂單時送來的資料格式
-    shop_name: str = Field(min_length=1, max_length=50)      # 店家名：必填，至少 1 個字（不能空白）、最多 50 字
+# 開單時送來的資料格式
+# - shop_name：店家名，必填，1～50 個字（不能空白）
+class OrderCreate(BaseModel):
+    shop_name: str = Field(min_length=1, max_length=50)
 
-class OrderOut(OrderCreate):                       # 繼承 OrderCreate 的所有欄位
-    id: int                                    # 加上 id
-    created_at: datetime                       # 加上創建時間
-    is_open: bool                              # 加上是否收單
-    model_config = ConfigDict(from_attributes=True)   # 允許從資料庫的物件取值    
+# API 回傳訂單的格式：繼承 OrderCreate，再加上 id、開單時間、是否收單
+# from_attributes=True 允許直接從資料庫的 Order 物件取值
+class OrderOut(OrderCreate):
+    id: int
+    created_at: datetime
+    is_open: bool
+    model_config = ConfigDict(from_attributes=True)
 
-class OrderCreated(OrderOut):                     # 只有「開單成功」的回應用這個格式
-    manage_token: str                             # 把管理碼交給開單的人；其他 API 用 OrderOut，看不到這個欄位    
+# 點一杯時送來的資料格式，送不符合的值會被拒絕（422）
+# - who_order：誰點的，1～10 個字
+# - drink_name：飲料名，1～100 個字
+# - ice：冰塊，只能是 正常冰／少冰／去冰／熱飲
+# - sugar：糖分，只能是 正常／9分／少糖／半糖／微糖／無糖
+# - size：尺寸，只能是 M 或 L
+# - add：備註，選填，最多 100 字
+# - toppings：加料，可複選；前五種是五十嵐、後兩種是得正，哪家店能加什麼由 cup_price 檢查
+# 前端送來的 price 不在這裡，會被忽略，價格一律由後端計算
+class CupCreate(BaseModel):
+    who_order: str = Field(min_length=1, max_length=10)
+    drink_name: str = Field(min_length=1, max_length=100)
+    ice: Literal["正常冰", "少冰", "去冰", "熱飲"]
+    sugar: Literal["正常", "9分", "少糖", "半糖", "微糖", "無糖"]
+    size: Literal["M", "L"]
+    add: str | None = Field(default=None, max_length=100)
+    toppings: list[Literal["珍珠", "波霸", "椰果", "布丁", "冰淇淋", "黃金珍珠", "焙烏龍茶凍"]] = Field(default=[])
 
-class CupCreate(BaseModel):                                  # 同學新增一杯時送來的資料格式
-    who_order: str = Field(min_length=1, max_length=10)      # 誰點的：必填，至少 1 個字（不能空白）、最多 10 字      
-    drink_name: str = Field(min_length=1, max_length=100)    # 飲料名：至少 1 個字（不能空白）、最多 100 字
-    ice: Literal["正常冰", "少冰", "去冰", "熱飲"]           # 冰塊：只能是這四個值之一，送其他值會被拒絕
-    sugar: Literal["正常", "9分", "少糖", "半糖", "微糖", "無糖"]   # 糖分：只能是這六個值之一，送其他值會被拒絕
-    size: Literal["M", "L"]                     # 尺寸：只能是這兩個值之一，送其他值會被拒絕
-    add: str | None = Field(default=None, max_length=100)    # 備註：選填，沒送就是 None；有送最多 100 字
-    toppings: list[Literal["珍珠", "波霸", "椰果", "布丁", "冰淇淋", "黃金珍珠", "焙烏龍茶凍"]] = Field(default=[])  # 加料：可複選；前五種是五十嵐、後兩種是得正，哪家店能加什麼由 cup_price 檢查
+# API 回傳每一杯飲料的格式：繼承 CupCreate，再加上 id、所屬訂單、後端算好的價格
+# from_attributes=True 允許直接從資料庫的 Cup 物件取值
+class CupOut(CupCreate):
+    id: int
+    order_id: int
+    price: int
+    model_config = ConfigDict(from_attributes=True)
 
-class CupOut(CupCreate):                                     # API 回傳時，每一杯存好的飲料的格式
-    id: int                                                  # 編號：整數，必填
-    model_config = ConfigDict(from_attributes=True)          # 允許用.去物件取值
-    order_id: int                                              # 這杯屬於哪張訂單
-    price: int                                                 # 價格：由後端照菜單算好再回傳，前端只負責顯示
-
-class CupCreated(CupOut):                         # 只有「點單成功」的回應用這個格式
-    delete_token: str                             # 把刪除碼交給點單的人；其他 API 用 CupOut，看不到這個欄位    
-    
-
-class MenuItemOut(BaseModel):                                     # API 回傳菜單品項的格式
-    id: int                                                       # 編號
-    shop: str                                                     # 店名
-    category: str                                                 # 分類
-    name: str                                                     # 品名
-    price_m: int                                                  # M 杯價格
-    price_l: int | None                                                  # L 杯價格
-    hot_ok: bool                                                  # 可不可以做熱飲
-    model_config = ConfigDict(from_attributes=True)               # 允許從資料庫的 MenuItem 物件取值
+# API 回傳菜單品項的格式：編號、店名、分類、品名、M／L 價格（L 可能沒有）、可不可以做熱飲
+# from_attributes=True 允許直接從資料庫的 MenuItem 物件取值
+class MenuItemOut(BaseModel):
+    id: int
+    shop: str
+    category: str
+    name: str
+    price_m: int
+    price_l: int | None
+    hot_ok: bool
+    model_config = ConfigDict(from_attributes=True)
