@@ -511,7 +511,7 @@
     // 2. 呼叫 GET /shops 拿到有菜單的店家，每家店放進下拉選單；只有一家店時直接幫忙選好
     // 3. 按下開單時：不重新整理頁面，先停用按鈕避免連按開出兩張單，呼叫 POST /orders 送出店名（去掉前後空白），
     //    成功就直接進到這張新訂單；失敗顯示錯誤並恢復按鈕
-    // 4. 呼叫 GET /orders，新的排在上面；有訂單就隱藏提示
+    // 4. 呼叫 GET /orders 拿最新的 50 張單，新的排在上面；有訂單就隱藏提示
     //    每張訂單做成一張手繪卡片連結：店名、狀態標籤（收單中／已結單）、編號和開單時間；已結單加上灰色樣式
     async function renderHome() {
       app.replaceChildren(fromTemplate("tpl-home"));
@@ -810,7 +810,7 @@
     }
 
     // 顯示某一張訂單
-    // 1. 後端沒有查單張訂單的 API，所以先拿全部訂單再找出這一張，再呼叫 GET /orders/{order_id}/cups；
+    // 1. 呼叫 GET /orders/{order_id} 拿這張訂單，再呼叫 GET /orders/{order_id}/cups；
     //    找不到或載入失敗就顯示錯誤並回首頁
     // 2. 呼叫 GET /menu?shop=店名（中文店名要先編碼）；沒有菜單（404）就算了，飲料改回自己輸入
     // 3. 填入店名、編號／時間／狀態、總金額（有千分位），畫出明細並顯示杯數和人數
@@ -822,9 +822,7 @@
     async function renderOrder(orderId) {
       let order, cups;
       try {
-        const orders = await api("/orders");
-        order = orders.find((o) => o.id === orderId);
-        if (!order) throw new Error("找不到這張訂單。");
+        order = await api(`/orders/${orderId}`);
         cups = await api(`/orders/${orderId}/cups`);
       } catch (error) {
         showToast(error.message, true);
