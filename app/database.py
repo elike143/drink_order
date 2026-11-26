@@ -14,8 +14,9 @@ load_dotenv()
 DATABASE_URL = os.environ["DATABASE_URL"]
 
 # 建立總機並帶入網址，15 秒內連不到就直接報錯
+# pool_pre_ping：每次從連線池拿連線前先試一下，連線已經被切斷（例如 Neon 閒置暫停）就丟掉換一條新的
 # 再設定 SessionLocal 工廠：每次呼叫都產生一個新的資料庫連線，並且不自動 flush
-engine = create_engine(DATABASE_URL, connect_args={"connect_timeout": 15})
+engine = create_engine(DATABASE_URL, connect_args={"connect_timeout": 15}, pool_pre_ping=True)
 SessionLocal = sessionmaker(autoflush=False, bind=engine)
 
 # 取得資料庫連線，給 API 的 Depends(get_db) 使用
