@@ -68,3 +68,17 @@ drink_order/
 - **設定缺了就不啟動**：用 `os.environ["..."]` 讀設定，少了必要的環境變數會直接啟動失敗，不會帶著錯誤設定上線
 - **資料庫只開放本機**：Docker 只綁定 `127.0.0.1:5432`
 
+
+## 資料表結構變更（要手動執行）
+
+啟動時的 `create_all` 只會建立還不存在的表，不會修改已經存在的表。所以改了 `models.py` 的索引或限制之後，已經在跑的資料庫（本機 Docker、正式環境 Neon）要手動執行 SQL；全新的資料庫則會直接照新的定義建立。
+
+**cups.order_id 索引、menu_items (shop, name) 唯一限制**
+
+```sql
+CREATE INDEX IF NOT EXISTS ix_cups_order_id ON cups (order_id);
+ALTER TABLE menu_items ADD CONSTRAINT menu_items_shop_name_key UNIQUE (shop, name);
+DROP INDEX IF EXISTS ix_menu_items_shop;
+```
+
+如果資料庫裡已經有同店同名的重複品項，第二句會失敗，要先刪掉重複的那筆再執行。
