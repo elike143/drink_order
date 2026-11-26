@@ -3,7 +3,7 @@
 # - HTTPException：回傳錯誤訊息；StaticFiles：提供靜態檔案；FileResponse：回傳首頁的 HTML 檔
 # - select：組 SQL 查詢；Session：資料庫連線的型別
 # - Literal：限制查詢參數只能是幾個固定值；Sequence：唯讀的清單型別
-# - 專案自己的資料庫連線、資料表（models）、店家菜單對應表與計價函式、資料格式（schemas）
+# - 專案自己的資料庫連線、資料表（models）、店家菜單對應表與計價函式、資料格式（schemas）、寫入次數限制
 from collections.abc import Sequence
 from typing import Literal
 
@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from app.database import SessionLocal, engine, get_db
 from app.menus.menu_data import MENUS, cup_price, seed_menu
 from app.models import Base, Cup, MenuItem, Order
+from app.rate_limit import limit_writes
 from app.schemas import CupCreate, CupOut, MenuItemOut, OrderCreate, OrderOut
 
 # 啟動時的準備工作
@@ -28,6 +29,12 @@ with SessionLocal() as db:
 
 app = FastAPI(title="Drink Order API")
 app.mount("/static", StaticFiles(directory="app/static", html=True), name="static")
+
+# 數量上限，避免有人用程式灌資料把資料庫塞滿
+# - ORDER_LIST_LIMIT：GET /orders 最多回傳最新的幾張單
+# - MAX_CUPS_PER_ORDER：一張單最多幾杯
+ORDER_LIST_LIMIT = 50
+MAX_CUPS_PER_ORDER = 100
 
 
 # ---------- 共用函式 ----------
@@ -44,7 +51,10 @@ def get_order(order_id: int, db: Session = Depends(get_db)) -> Order:
 # 用 cup_price 計算一杯的價格（飲料價格加上加料）
 # 規則不允許時（例如只有 M 杯卻點 L、得正點波霸）cup_price 會丟 ValueError，這裡轉成 400 和原因
 # toppings 用 Sequence[str]：只讀不改，所以 list[str] 和 CupCreate 的加料清單（list[Literal[...]]）都能傳進來
+# 同一種料重複出現（例如送 1000 個珍珠）也回 400
 def calc_price(item: MenuItem, size: str, toppings: Sequence[str]) -> int:
+    if len(toppings) != len(set(toppings)):
+        raise HTTPException(status_code=400, detail="同一種加料只能加一次")
     try:
         return cup_price(item, size, toppings)
     except ValueError as e:
@@ -106,16 +116,23 @@ def get_price(
 
 # ---------- 訂單 ----------
 
-# 看所有訂單
+# 看最新的訂單：依編號由新到舊，最多 ORDER_LIST_LIMIT 張，避免訂單越來越多時一次回傳全部
 # scalars() 把每一筆資料轉成 Order 物件，all() 全部放進 list，再由 OrderOut 決定回傳格式
 @app.get("/orders", response_model=list[OrderOut])
 def list_orders(db: Session = Depends(get_db)):
-    return db.scalars(select(Order)).all()
+    return db.scalars(select(Order).order_by(Order.id.desc()).limit(ORDER_LIST_LIMIT)).all()
+
+
+# 看單張訂單：找不到回 404；訂單頁用它，所以不在最新清單裡的舊訂單也打得開
+@app.get("/orders/{order_id}", response_model=OrderOut)
+def read_order(order: Order = Depends(get_order)):
+    return order
 
 
 # 開一張新訂單，成功回 201，並回傳含 id 和開單時間的訂單
 # 店名必須是 MENUS 裡有菜單的店，否則回 400，避免繞過前端開出點不了任何飲料的空單（例如「麥當勞」）
-@app.post("/orders", response_model=OrderOut, status_code=201)
+# 寫入的路由都掛上 limit_writes，送太頻繁回 429
+@app.post("/orders", response_model=OrderOut, status_code=201, dependencies=[Depends(limit_writes)])
 def create_order(data: OrderCreate, db: Session = Depends(get_db)):
     if data.shop_name not in MENUS:
         raise HTTPException(status_code=400, detail="沒有這家店的菜單")
@@ -123,7 +140,7 @@ def create_order(data: OrderCreate, db: Session = Depends(get_db)):
 
 
 # 結單：任何人都可以結單；找不到訂單回 404，結單後回傳這張訂單最新的樣子
-@app.post("/orders/{order_id}/close", response_model=OrderOut)
+@app.post("/orders/{order_id}/close", response_model=OrderOut, dependencies=[Depends(limit_writes)])
 def close_order(order: Order = Depends(get_order), db: Session = Depends(get_db)):
     order.is_open = False
     return save(db, order)
@@ -131,7 +148,7 @@ def close_order(order: Order = Depends(get_order), db: Session = Depends(get_db)
 
 # 刪除整張訂單：任何人都可以刪，找不到回 404
 # 先把這張單裡的每一杯標記刪除（否則外鍵會擋住刪除訂單），再標記訂單本身，最後一次 commit 真正刪掉，回 204
-@app.delete("/orders/{order_id}", status_code=204)
+@app.delete("/orders/{order_id}", status_code=204, dependencies=[Depends(limit_writes)])
 def delete_order(order: Order = Depends(get_order), db: Session = Depends(get_db)):
     for cup in order.cups:
         db.delete(cup)
@@ -148,15 +165,17 @@ def list_cups_in_order(order: Order = Depends(get_order)):
 
 
 # 新增一杯飲料，成功回 201
-# 1. 找不到訂單回 404；訂單已經結單回 400
+# 1. 找不到訂單回 404；訂單已經結單、或已經滿 MAX_CUPS_PER_ORDER 杯回 400
 # 2. 在這家店的菜單裡找這杯飲料，菜單上沒有就回 400
 # 3. 店家規則：菜單標 ◆ 的飲料不能做熱飲；得正的奶蓋系列固定少冰
-# 4. 價格只信任後端，由 calc_price 計算，規則不允許時回 400 和原因
+# 4. 價格只信任後端，由 calc_price 計算，規則不允許（包含同一種料重複）時回 400 和原因
 # 5. 前端資料加上算好的價格和訂單編號存進資料庫
-@app.post("/orders/{order_id}/cups", response_model=CupOut, status_code=201)
+@app.post("/orders/{order_id}/cups", response_model=CupOut, status_code=201, dependencies=[Depends(limit_writes)])
 def create_cup(data: CupCreate, order: Order = Depends(get_order), db: Session = Depends(get_db)):
     if not order.is_open:
         raise HTTPException(status_code=400, detail="這張訂單已經關閉，不能再點")
+    if len(order.cups) >= MAX_CUPS_PER_ORDER:
+        raise HTTPException(status_code=400, detail=f"一張單最多 {MAX_CUPS_PER_ORDER} 杯")
 
     item = db.scalar(select(MenuItem).where(MenuItem.shop == order.shop_name, MenuItem.name == data.drink_name))
     if item is None:
@@ -175,7 +194,7 @@ def create_cup(data: CupCreate, order: Order = Depends(get_order), db: Session =
 # - 用主鍵找這杯，找不到或這杯不屬於網址上的訂單回 404
 # - 這杯所屬的訂單已經結單回 400
 # - 刪掉之後回 204（成功，但沒有內容要回傳）
-@app.delete("/orders/{order_id}/cups/{cup_id}", status_code=204)
+@app.delete("/orders/{order_id}/cups/{cup_id}", status_code=204, dependencies=[Depends(limit_writes)])
 def delete_cup(order_id: int, cup_id: int, db: Session = Depends(get_db)):
     cup = db.get(Cup, cup_id)
     if not cup or cup.order_id != order_id:

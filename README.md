@@ -51,6 +51,7 @@ uvicorn app.main:app --reload     # 第一次啟動會自動建表、寫入菜�
 ## 已知限制
 
 - 拿到連結的人都能結單、刪單，沒有權限控管
+- 限制寫入次數的紀錄存在記憶體，只適用一個程序，伺服器重開就清空；而且是用 `X-Forwarded-For` 認 IP，這個 header 可以偽造，所以另外有全站上限擋著
 - 用 `create_all` 建表，改資料表結構要重建資料庫。下一步改用 Alembic
 - 加料規則用 if 依店名分支，每多一家店就要改程式
 - 還沒有自動測試，目前用 FastAPI 的 `TestClient` 寫臨時腳本手動驗證。下一步加 GitHub Actions，每次開 PR 自動跑 pytest
