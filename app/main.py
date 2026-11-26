@@ -2,8 +2,9 @@
 # - FastAPI：建立 API；Depends：取得資料庫連線或共用的前置工作；Query：取得查詢參數
 # - HTTPException：回傳錯誤訊息；StaticFiles：提供靜態檔案；FileResponse：回傳首頁的 HTML 檔
 # - select：組 SQL 查詢；Session：資料庫連線的型別
-# - Literal：限制查詢參數只能是幾個固定值
+# - Literal：限制查詢參數只能是幾個固定值；Sequence：唯讀的清單型別
 # - 專案自己的資料庫連線、資料表（models）、菜單與計價函式、資料格式（schemas）
+from collections.abc import Sequence
 from typing import Literal
 
 from fastapi import Depends, FastAPI, HTTPException, Query
@@ -42,7 +43,8 @@ def get_order(order_id: int, db: Session = Depends(get_db)) -> Order:
 
 # 用 cup_price 計算一杯的價格（飲料價格加上加料）
 # 規則不允許時（例如只有 M 杯卻點 L、得正點波霸）cup_price 會丟 ValueError，這裡轉成 400 和原因
-def calc_price(item: MenuItem, size: str, toppings: list[str]) -> int:
+# toppings 用 Sequence[str]：只讀不改，所以 list[str] 和 CupCreate 的加料清單（list[Literal[...]]）都能傳進來
+def calc_price(item: MenuItem, size: str, toppings: Sequence[str]) -> int:
     try:
         return cup_price(item, size, toppings)
     except ValueError as e:
