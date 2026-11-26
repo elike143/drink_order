@@ -3,7 +3,7 @@
 # - HTTPException：回傳錯誤訊息；StaticFiles：提供靜態檔案；FileResponse：回傳首頁的 HTML 檔
 # - select：組 SQL 查詢；Session：資料庫連線的型別
 # - Literal：限制查詢參數只能是幾個固定值；Sequence：唯讀的清單型別
-# - 專案自己的資料庫連線、資料表（models）、菜單與計價函式、資料格式（schemas）
+# - 專案自己的資料庫連線、資料表（models）、店家菜單對應表與計價函式、資料格式（schemas）
 from collections.abc import Sequence
 from typing import Literal
 
@@ -14,7 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database import SessionLocal, engine, get_db
-from app.menus.menu_data import cup_price, seed_menu
+from app.menus.menu_data import MENUS, cup_price, seed_menu
 from app.models import Base, Cup, MenuItem, Order
 from app.schemas import CupCreate, CupOut, MenuItemOut, OrderCreate, OrderOut
 
@@ -114,8 +114,11 @@ def list_orders(db: Session = Depends(get_db)):
 
 
 # 開一張新訂單，成功回 201，並回傳含 id 和開單時間的訂單
+# 店名必須是 MENUS 裡有菜單的店，否則回 400，避免繞過前端開出點不了任何飲料的空單（例如「麥當勞」）
 @app.post("/orders", response_model=OrderOut, status_code=201)
 def create_order(data: OrderCreate, db: Session = Depends(get_db)):
+    if data.shop_name not in MENUS:
+        raise HTTPException(status_code=400, detail="沒有這家店的菜單")
     return save(db, Order(**data.model_dump()))
 
 
